@@ -5,7 +5,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { background-color: #3b6fb6; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; color: #333; }
-        .admin-panel { background: rgba(255,255,255,0.9); padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; gap: 10px; align-items: center; }
+        .admin-panel { background: rgba(255,255,255,0.9); padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .main-container { display: grid; grid-template-columns: 1fr 0.8fr 1fr; gap: 10px; max-width: 1600px; margin: auto; }
         .sector-box { background: #e0e6ed; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 10px; }
         .sector-header { background: #f58220; color: white; text-align: center; padding: 10px; font-weight: bold; text-transform: uppercase; }
@@ -23,9 +23,9 @@
 <body>
 
 <div class="admin-panel">
-    <button style="background:#e67e22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportar()">📸 EXPORTAR ESCALA</button>
-    <input type="text" id="novoNome" placeholder="Nome do funcionário">
-    <button class="btn-add" onclick="adicionarPessoa()">+ CADASTRAR</button>
+    <button style="background:#e67e22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarImg()">📸 EXPORTAR IMAGEM</button>
+    <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
+    <small>Os dados são salvos automaticamente neste navegador.</small>
 </div>
 
 <div class="main-container" id="painel">
@@ -34,7 +34,7 @@
         <div class="sector-box" id="sec-garra"><div class="sector-header">GARRA</div><div class="shift-container"></div><button class="btn-add" onclick="addShift('sec-garra')">+ TURNO</button></div>
     </div>
     <div class="center-col">
-        <div class="sector-box" style="background:white; text-align:center; padding:10px;"><b>BRASIL LOGÍSTICA PORTUÁRIA</b></div>
+        <div class="sector-box" style="background:white; text-align:center; padding:10px;"><b>BLP - BRASIL LOGÍSTICA PORTUÁRIA</b></div>
         <div class="sector-box" id="sec-lider"><div class="sector-header" style="background:#333">LÍDER DE GATE</div><div class="shift-container"></div><button class="btn-add" onclick="addShift('sec-lider')">+ TURNO</button></div>
         <div class="sector-box" id="sec-folga"><div class="sector-header" style="background:#ccaa00; color:#000">FOLGAS</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
     </div>
@@ -55,32 +55,30 @@
         const targetZone = ev.target.closest('.drop-zone');
         if (targetZone) {
             targetZone.appendChild(card);
-            if (targetZone.id === 'dz-folga') { card.dataset.cicloStart = ""; } 
-            else {
-                if (!card.dataset.localStart) card.dataset.localStart = Date.now();
-                if (!card.dataset.cicloStart) card.dataset.cicloStart = Date.now();
+            if (targetZone.id === 'dz-folga') { 
+                card.dataset.cicloStart = ""; 
+                card.dataset.localStart = "";
+            } else {
+                if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
+                if (!card.dataset.cicloStart || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
             }
             saveState();
         }
     }
 
-    function addShift(sectorId, title = "06:00 AS 14:20") {
+    function addShift(sectorId, title = "06:00 AS 14:20", idManual) {
         const container = document.querySelector(`#${sectorId} .shift-container`);
-        const shiftId = 'shift-' + Math.random().toString(36).substr(2, 9);
-        container.insertAdjacentHTML('beforeend', `<div class="shift-box"><div class="shift-header" contenteditable="true" onblur="saveState()">${title}</div><div class="drop-zone" id="dz-${shiftId}" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>`);
-        saveState();
+        const shiftId = idManual || 'dz-' + Math.random().toString(36).substr(2, 9);
+        container.insertAdjacentHTML('beforeend', `<div class="shift-box"><div class="shift-header" contenteditable="true" onblur="saveState()">${title}</div><div class="drop-zone" id="${shiftId}" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>`);
     }
 
-    function adicionarPessoa(nome, idManual) {
-        const n = nome || document.getElementById('novoNome').value.toUpperCase();
-        if (!n) return;
+    function criarPessoa(n, idManual) {
         const id = idManual || 'p-' + Math.random().toString(36).substr(2, 9);
         const card = document.createElement('div');
         card.className = 'card'; card.id = id; card.draggable = true; card.ondragstart = drag;
         card.innerHTML = `<span class="name">${n}</span><div class="admin-info"><span class="timer-local"></span><span class="timer-ciclo"></span></div>`;
         document.getElementById('dz-folga').appendChild(card);
-        if(!nome) document.getElementById('novoNome').value = "";
-        saveState();
+        return card;
     }
 
     function saveState() {
@@ -95,49 +93,51 @@
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, id: c.id });
         });
-        localStorage.setItem('blp_escala_vfinal_fixa', JSON.stringify(state));
+        localStorage.setItem('blp_escala_permanente', JSON.stringify(state));
     }
 
     function loadState() {
-        const data = localStorage.getItem('blp_escala_vfinal_fixa');
-        if (!data) {
+        const raw = localStorage.getItem('blp_escala_permanente');
+        if (!raw) {
+            // SÓ CRIA OS NOMES NA PRIMEIRA VEZ QUE ABRIR O LINK NA VIDA
+            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => criarPessoa(n));
             addShift('sec-maxi'); addShift('sec-sanry');
-            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => adicionarPessoa(n));
             return;
         }
-        const state = JSON.parse(data);
-        state.sectors.forEach(s => s.shifts.forEach(sh => addShift(s.id, sh.title)));
+        const state = JSON.parse(raw);
+        state.sectors.forEach(s => s.shifts.forEach(sh => addShift(s.id, sh.title, sh.id)));
         state.people.forEach(p => {
-            adicionarPessoa(p.name, p.id);
-            const card = document.getElementById(p.id);
-            card.dataset.localStart = p.localStart || "";
-            card.dataset.cicloStart = p.cicloStart || "";
+            const card = criarPessoa(p.name, p.id);
+            card.dataset.localStart = p.localStart;
+            card.dataset.cicloStart = p.cicloStart;
             const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
             dest.appendChild(card);
         });
     }
 
+    function resetGeral() { if(confirm("Deseja zerar a escala e os tempos?")) { localStorage.removeItem('blp_escala_permanente'); location.reload(); } }
+
     setInterval(() => {
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
-            if (l) {
+            if (l && l !== "undefined" && l !== "") {
                 const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
                 tL.innerText = dias > 0 ? `No posto há: ${dias} dia(s)` : `No posto há: hoje`;
-            } else { tL.innerText = "SEM REGISTRO"; }
-            if (c && card.parentElement.id !== 'dz-folga') {
+            } else { tL.innerText = "FOLGA"; }
+            if (c && c !== "undefined" && c !== "" && card.parentElement.id !== 'dz-folga') {
                 const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000);
                 tC.innerText = `Trabalhando há ${diasC + 1} dias`;
-            } else { tC.innerText = "FOLGA"; }
+            } else { tC.innerText = "-"; }
         });
     }, 1000);
 
-    function exportar() {
+    function exportarImg() {
         html2canvas(document.getElementById('painel')).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'escala_blp.png'; link.href = canvas.toDataURL(); link.click();
+            const link = document.createElement('a'); link.download = 'escala_blp.png'; link.href = canvas.toDataURL(); link.click();
         });
     }
+
     window.onload = loadState;
 </script>
 </body>
