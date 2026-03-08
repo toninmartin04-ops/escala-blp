@@ -53,14 +53,32 @@
         const data = ev.dataTransfer.getData("text");
         const card = document.getElementById(data);
         const targetZone = ev.target.closest('.drop-zone');
+        const sector = ev.target.closest('.sector-box');
+        
         if (targetZone) {
+            const novoSetorId = sector ? sector.id : 'sec-folga';
+            const setorAntigo = card.dataset.lastSector || 'sec-folga';
+
             targetZone.appendChild(card);
-            if (targetZone.id === 'dz-folga') { 
-                card.dataset.cicloStart = ""; 
-                card.dataset.localStart = "";
+
+            if (novoSetorId === 'sec-folga') {
+                // Zera apenas o ciclo quando vai pra folga
+                card.dataset.cicloStart = "";
+                // Mantém o localStart para quando ele voltar ao mesmo terminal
             } else {
-                if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
-                if (!card.dataset.cicloStart || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
+                // Se mudou de terminal (ex: Maxi para Sanry), zera o tempo de terminal
+                if (novoSetorId !== setorAntigo && setorAntigo !== 'sec-folga') {
+                    card.dataset.localStart = Date.now();
+                }
+                // Se estava na folga e não tinha registro de terminal, inicia agora
+                if (!card.dataset.localStart || card.dataset.localStart === "undefined") {
+                    card.dataset.localStart = Date.now();
+                }
+                // Se não tinha ciclo de trabalho (estava na folga), inicia o ciclo
+                if (!card.dataset.cicloStart || card.dataset.cicloStart === "undefined" || card.dataset.cicloStart === "") {
+                    card.dataset.cicloStart = Date.now();
+                }
+                card.dataset.lastSector = novoSetorId;
             }
             saveState();
         }
@@ -91,15 +109,21 @@
             state.sectors.push({ id: sb.id, shifts });
         });
         document.querySelectorAll('.card').forEach(c => {
-            state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, id: c.id });
+            state.people.push({ 
+                name: c.querySelector('.name').innerText, 
+                parent: c.parentElement.id, 
+                localStart: c.dataset.localStart, 
+                cicloStart: c.dataset.cicloStart, 
+                lastSector: c.dataset.lastSector,
+                id: c.id 
+            });
         });
-        localStorage.setItem('blp_escala_permanente', JSON.stringify(state));
+        localStorage.setItem('blp_escala_permanente_v3', JSON.stringify(state));
     }
 
     function loadState() {
-        const raw = localStorage.getItem('blp_escala_permanente');
+        const raw = localStorage.getItem('blp_escala_permanente_v3');
         if (!raw) {
-            // SÓ CRIA OS NOMES NA PRIMEIRA VEZ QUE ABRIR O LINK NA VIDA
             ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => criarPessoa(n));
             addShift('sec-maxi'); addShift('sec-sanry');
             return;
@@ -108,27 +132,30 @@
         state.sectors.forEach(s => s.shifts.forEach(sh => addShift(s.id, sh.title, sh.id)));
         state.people.forEach(p => {
             const card = criarPessoa(p.name, p.id);
-            card.dataset.localStart = p.localStart;
-            card.dataset.cicloStart = p.cicloStart;
+            card.dataset.localStart = p.localStart || "";
+            card.dataset.cicloStart = p.cicloStart || "";
+            card.dataset.lastSector = p.lastSector || "sec-folga";
             const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
             dest.appendChild(card);
         });
     }
 
-    function resetGeral() { if(confirm("Deseja zerar a escala e os tempos?")) { localStorage.removeItem('blp_escala_permanente'); location.reload(); } }
+    function resetGeral() { if(confirm("Deseja zerar a escala e os tempos?")) { localStorage.removeItem('blp_escala_permanente_v3'); location.reload(); } }
 
     setInterval(() => {
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
+            
             if (l && l !== "undefined" && l !== "") {
                 const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                tL.innerText = dias > 0 ? `No posto há: ${dias} dia(s)` : `No posto há: hoje`;
-            } else { tL.innerText = "FOLGA"; }
+                tL.innerText = `Neste terminal há: ${dias} dia(s)`;
+            } else { tL.innerText = "SEM REGISTRO"; }
+
             if (c && c !== "undefined" && c !== "" && card.parentElement.id !== 'dz-folga') {
                 const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000);
                 tC.innerText = `Trabalhando há ${diasC + 1} dias`;
-            } else { tC.innerText = "-"; }
+            } else { tC.innerText = "FOLGA"; }
         });
     }, 1000);
 
