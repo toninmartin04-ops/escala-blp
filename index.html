@@ -52,7 +52,7 @@
     </div>
     <div class="sector-container">
         <div class="sector-box" id="sec-sanry"><div class="sector-header">SANRY</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-sanry')">+ TURNO</button></div>
-        <div class="sector-box" id="sec-almox"><div class="sector-header">ALMOXARIFADO</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
+        <div class="sector-box" id="sec-almox"><div class="sector-header">ESTOQUE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
     </div>
 </div>
 
@@ -129,7 +129,7 @@
     function loadState() {
         const raw = localStorage.getItem('blp_escala_final_limpa');
         if (!raw) {
-            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => criarPessoa(n));
+            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "KAIO CORREA", "VINICIUS", "ANDRE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN","PEDRO", "HALEFI", "RENAN","JHONATAN", "ROBERTO"].forEach(n => criarPessoa(n));
             addShift('sec-maxi'); addShift('sec-sanry');
             return;
         }
