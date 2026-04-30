@@ -10,10 +10,10 @@
         .sector-box { background: #e0e6ed; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 10px; }
         .sector-header { background: #f58220; color: white; text-align: center; padding: 10px; font-weight: bold; text-transform: uppercase; }
         .shift-box { background: white; border-radius: 4px; border: 1px solid #ccc; margin: 5px; }
-        .shift-header { background: #3b6fb6; color: white; font-size: 11px; padding: 4px; text-align: center; font-weight: bold; }
-        .drop-zone { padding: 8px; min-height: 60px; display: flex; flex-wrap: wrap; gap: 8px; background: #fff; border: 1px dashed #eee; }
+        .shift-header { background: #b0c4de; color: #333; font-size: 12px; padding: 4px; text-align: center; font-weight: bold; }
+        .drop-zone { padding: 8px; min-height: 60px; display: flex; flex-wrap: wrap; gap: 8px; background: #fff; border: 1px dashed #eee; justify-content: center; }
         .card { background: white; padding: 10px; border-radius: 4px; border-left: 5px solid #3b6fb6; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; min-width: 130px; position: relative; }
-        .name { font-weight: bold; display: block; font-size: 14px; text-transform: uppercase; }
+        .name { font-weight: bold; display: block; font-size: 13px; text-transform: uppercase; }
         .btn-del { position: absolute; top: 2px; right: 2px; color: #c0392b; cursor: pointer; font-weight: bold; font-size: 10px; border: none; background: none; }
         .timer-local { color: #d35400; font-weight: bold; display: block; font-size: 10px; }
         .timer-ciclo { color: #2980b9; display: block; font-size: 10px; border-top: 1px solid #eee; }
@@ -21,13 +21,21 @@
         .folga-box { background: #ffff00 !important; min-height: 150px; border: 2px dashed #ccaa00; }
         input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 3px; text-transform: uppercase; }
 
+        /* ESTILO DO LOGO BLP */
+        .blp-container { margin-bottom: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        .blp-date { background-color: #f58220; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px; text-transform: uppercase; }
+        .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .blp-waves { color: #2980b9; font-size: 40px; font-weight: bold; line-height: 1; letter-spacing: -5px; margin-right: 5px; }
+        .blp-text { color: #f58220; font-size: 45px; font-weight: 900; font-style: italic; line-height: 1; padding-right: 15px;}
+        .blp-subtext { font-size: 9px; color: #999; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px; }
+
         /* REGRAS PARA A FOTO (O QUE SOME NA EXPORTAÇÃO) */
         .export-mode .admin-panel, 
         .export-mode .btn-del, 
         .export-mode .btn-add, 
         .export-mode .admin-info { display: none !important; }
         .export-mode .main-container { background-color: #3b6fb6; width: 1400px; padding: 30px; }
-        .export-mode .card { padding: 15px; }
+        .export-mode .card { padding: 15px; border-left: none; border: 1px solid #eee;}
     </style>
 </head>
 <body>
@@ -45,11 +53,23 @@
         <div class="sector-box" id="sec-maxi"><div class="sector-header">MAXIPORT</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-maxi')">+ TURNO</button></div>
         <div class="sector-box" id="sec-garra"><div class="sector-header">GARRA</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-garra')">+ TURNO</button></div>
     </div>
+    
     <div class="center-col">
-        <div class="sector-box" style="background:white; text-align:center; padding:15px; border: 2px solid #f58220; color:#3b6fb6; font-size: 16px; margin-bottom: 20px; border-radius: 6px;"><b>BLP - BRASIL LOGÍSTICA PORTUÁRIA</b></div>
+        <!-- NOVA LOGO COM DATA AUTOMÁTICA -->
+        <div class="blp-container">
+            <div id="data-amanha" class="blp-date">CARREGANDO DATA...</div>
+            <div class="blp-logo-box">
+                <div style="display: flex; align-items: center; justify-content: center;">
+                    <span class="blp-waves">≈</span>
+                    <span class="blp-text">BLP</span>
+                </div>
+                <div class="blp-subtext">BRASIL LOGÍSTICA PORTUÁRIA</div>
+            </div>
+        </div>
         
         <div class="sector-box" id="sec-folga"><div class="sector-header" style="background:#ccaa00; color:#000">FOLGAS</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
     </div>
+    
     <div class="sector-container">
         <div class="sector-box" id="sec-sanry"><div class="sector-header">SANRY</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-sanry')">+ TURNO</button></div>
         <div class="sector-box" id="sec-almox"><div class="sector-header">ESTOQUE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
@@ -57,6 +77,8 @@
 </div>
 
 <script>
+    const nomesIniciais = ["KAIO", "THIAGO", "LUCAS SILVEIRA", "AIRTON", "MARCOS", "ADRIAN", "RICARDO", "KAIO CORREA", "CAIO B", "PEDRO", "ALAN", "ANDRE", "ALISON", "HALEFI", "JOÃO LUCAS", "ANTONIO", "BRUNO", "ROBERTO", "NATHAN", "MATHEUS", "MARTIM", "RENAN"];
+
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
 
@@ -83,7 +105,7 @@
         }
     }
 
-    function addShift(sectorId, title = "06:00 AS 14:20", idManual) {
+    function addShift(sectorId, title = "TURNO A 06:00 AS 14:20", idManual) {
         const container = document.querySelector(`#${sectorId} .shift-container`);
         const shiftId = idManual || 'dz-' + Math.random().toString(36).substr(2, 9);
         container.insertAdjacentHTML('beforeend', `<div class="shift-box"><div class="shift-header" contenteditable="true" onblur="saveState()">${title}</div><div class="drop-zone" id="${shiftId}" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>`);
@@ -123,14 +145,18 @@
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, lastSector: c.dataset.lastSector, id: c.id });
         });
-        localStorage.setItem('blp_escala_final_limpa', JSON.stringify(state));
+        localStorage.setItem('blp_escala_final_v5', JSON.stringify(state));
     }
 
     function loadState() {
-        const raw = localStorage.getItem('blp_escala_final_limpa');
+        const raw = localStorage.getItem('blp_escala_final_v5');
         if (!raw) {
-            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => criarPessoa(n));
-            addShift('sec-maxi'); addShift('sec-sanry');
+            nomesIniciais.forEach(n => criarPessoa(n));
+            addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
+            addShift('sec-maxi', 'TURNO B 14:00 AS 22:20');
+            addShift('sec-garra', 'TURNO A 06:00 AS 14:20');
+            addShift('sec-sanry', 'TURNO A 06:00 AS 14:20');
+            addShift('sec-almox', 'TURNO A 06:00 AS 14:20');
             return;
         }
         const state = JSON.parse(raw);
@@ -145,9 +171,21 @@
         });
     }
 
-    function resetGeral() { if(confirm("Apagar memória?")) { localStorage.removeItem('blp_escala_final_limpa'); location.reload(); } }
+    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v5'); location.reload(); } }
+
+    function atualizarDataAmanha() {
+        const amanha = new Date();
+        amanha.setDate(amanha.getDate() + 1);
+        const diasSemana = ['DOMINGO', 'SEGUNDA-FEIRA', 'TERÇA-FEIRA', 'QUARTA-FEIRA', 'QUINTA-FEIRA', 'SEXTA-FEIRA', 'SÁBADO'];
+        const diaNome = diasSemana[amanha.getDay()];
+        const dd = String(amanha.getDate()).padStart(2, '0');
+        const mm = String(amanha.getMonth() + 1).padStart(2, '0');
+        const yyyy = amanha.getFullYear();
+        document.getElementById('data-amanha').innerText = `${diaNome} ${dd}/${mm}/${yyyy}`;
+    }
 
     setInterval(() => {
+        atualizarDataAmanha(); // Mantém a data sempre atualizada caso vire a meia-noite
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
@@ -163,18 +201,21 @@
     }, 1000);
 
     function exportarLimpo() {
-        document.body.classList.add('export-mode'); // Ativa o modo limpo
+        document.body.classList.add('export-mode'); 
         setTimeout(() => {
             html2canvas(document.getElementById('painel'), { scale: 2 }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `Escala_BLP_${new Date().toLocaleDateString()}.png`;
                 link.href = canvas.toDataURL();
                 link.click();
-                document.body.classList.remove('export-mode'); // Volta ao normal
+                document.body.classList.remove('export-mode'); 
             });
         }, 100);
     }
-    window.onload = loadState;
+    window.onload = () => {
+        loadState();
+        atualizarDataAmanha();
+    };
 </script>
 </body>
 </html>
