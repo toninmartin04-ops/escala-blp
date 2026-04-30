@@ -46,8 +46,8 @@
         <div class="sector-box" id="sec-garra"><div class="sector-header">GARRA</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-garra')">+ TURNO</button></div>
     </div>
     <div class="center-col">
-        <div class="sector-box" style="background:white; text-align:center; padding:10px;"><b>BLP - BRASIL LOGÍSTICA PORTUÁRIA</b></div>
-        <div class="sector-box" id="sec-lider"><div class="sector-header" style="background:#333">LÍDER DE GATE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-lider')">+ TURNO</button></div>
+        <div class="sector-box" style="background:white; text-align:center; padding:15px; border: 2px solid #f58220; color:#3b6fb6; font-size: 16px; margin-bottom: 20px; border-radius: 6px;"><b>BLP - BRASIL LOGÍSTICA PORTUÁRIA</b></div>
+        
         <div class="sector-box" id="sec-folga"><div class="sector-header" style="background:#ccaa00; color:#000">FOLGAS</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
     </div>
     <div class="sector-container">
@@ -129,7 +129,7 @@
     function loadState() {
         const raw = localStorage.getItem('blp_escala_final_limpa');
         if (!raw) {
-            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "KAIO CORREA", "VINICIUS", "ANDRE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "PEDRO", "HALEFI", "RENAN", "JHONATAN", "ROBERTO"].forEach(n => criarPessoa(n));
+            ["MATHEUS", "ADRIAN", "BRUNO", "ALISON", "EDER", "VINICIUS", "FELIPE", "CAIO", "NATHAN", "ANTONIO", "JOÃO LUCAS", "MARTIM", "RICARDO", "ALAN", "LUCAS", "KAIO", "JONATAN", "GIOVANI"].forEach(n => criarPessoa(n));
             addShift('sec-maxi'); addShift('sec-sanry');
             return;
         }
