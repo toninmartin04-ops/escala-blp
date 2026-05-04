@@ -21,13 +21,11 @@
         .folga-box { background: #ffff00 !important; min-height: 150px; border: 2px dashed #ccaa00; }
         input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 3px; text-transform: uppercase; }
 
-        /* ESTILO DO LOGO BLP */
+        /* ESTILO DO LOGO BLP AJUSTADO PARA IMAGEM */
         .blp-container { margin-bottom: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .blp-date { background-color: #f58220; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px; text-transform: uppercase; }
-        .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .blp-waves { color: #2980b9; font-size: 40px; font-weight: bold; line-height: 1; letter-spacing: -5px; margin-right: 5px; }
-        .blp-text { color: #f58220; font-size: 45px; font-weight: 900; font-style: italic; line-height: 1; padding-right: 15px;}
-        .blp-subtext { font-size: 9px; color: #999; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px; }
+        .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 10px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+        .blp-logo-box img { max-width: 100%; max-height: 70px; object-fit: contain; }
 
         /* REGRAS PARA A FOTO (O QUE SOME NA EXPORTAÇÃO) */
         .export-mode .admin-panel, 
@@ -55,15 +53,10 @@
     </div>
     
     <div class="center-col">
-        <!-- NOVA LOGO COM DATA AUTOMÁTICA -->
         <div class="blp-container">
             <div id="data-amanha" class="blp-date">CARREGANDO DATA...</div>
             <div class="blp-logo-box">
-                <div style="display: flex; align-items: center; justify-content: center;">
-                    <span class="blp-waves">≈</span>
-                    <span class="blp-text">BLP</span>
-                </div>
-                <div class="blp-subtext">BRASIL LOGÍSTICA PORTUÁRIA</div>
+                <img src="https://via.placeholder.com/150" alt="Logo BLP">
             </div>
         </div>
         
@@ -145,17 +138,19 @@
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, lastSector: c.dataset.lastSector, id: c.id });
         });
-        localStorage.setItem('blp_escala_final_v5', JSON.stringify(state));
+        localStorage.setItem('blp_escala_final_v6', JSON.stringify(state));
     }
 
     function loadState() {
-        const raw = localStorage.getItem('blp_escala_final_v5');
+        const raw = localStorage.getItem('blp_escala_final_v6');
         if (!raw) {
             nomesIniciais.forEach(n => criarPessoa(n));
             addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
             addShift('sec-maxi', 'TURNO B 14:00 AS 22:20');
+            addShift('sec-maxi', 'TURNO C 22:00 AS 06:20');
             addShift('sec-garra', 'TURNO A 06:00 AS 14:20');
             addShift('sec-sanry', 'TURNO A 06:00 AS 14:20');
+            addShift('sec-sanry', 'TURNO B 14:00 AS 22:20');
             addShift('sec-almox', 'TURNO A 06:00 AS 14:20');
             return;
         }
@@ -171,7 +166,7 @@
         });
     }
 
-    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v5'); location.reload(); } }
+    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v6'); location.reload(); } }
 
     function atualizarDataAmanha() {
         const amanha = new Date();
@@ -185,7 +180,7 @@
     }
 
     setInterval(() => {
-        atualizarDataAmanha(); // Mantém a data sempre atualizada caso vire a meia-noite
+        atualizarDataAmanha(); 
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
