@@ -18,10 +18,12 @@
         .timer-local { color: #d35400; font-weight: bold; display: block; font-size: 10px; }
         .timer-ciclo { color: #2980b9; display: block; font-size: 10px; border-top: 1px solid #eee; }
         .btn-add { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; font-weight: bold; }
-        .folga-box { background: #ffff00 !important; min-height: 150px; border: 2px dashed #ccaa00; }
-        input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 3px; text-transform: uppercase; }
+        
+        /* CAIXAS ESPECIAIS (FOLGA E FÉRIAS) */
+        .folga-box { background: #ffff00 !important; min-height: 100px; border: 2px dashed #ccaa00; }
+        .ferias-box { background: #d5f5e3 !important; min-height: 100px; border: 2px dashed #2ecc71; }
 
-        /* ESTILO DO LOGO BLP - IMAGEM GRANDE (Ajustado) */
+        /* ESTILO DO LOGO BLP - IMAGEM GRANDE */
         .blp-container { margin-bottom: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .blp-date { background-color: #f58220; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px; text-transform: uppercase; }
         .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 10px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 160px; }
@@ -53,6 +55,7 @@
     </div>
     
     <div class="center-col">
+        <!-- NOVA LOGO COM DATA AUTOMÁTICA E IMAGEM BASE64 -->
         <div class="blp-container">
             <div id="data-amanha" class="blp-date">CARREGANDO DATA...</div>
             <div class="blp-logo-box">
@@ -61,6 +64,9 @@
         </div>
         
         <div class="sector-box" id="sec-folga"><div class="sector-header" style="background:#ccaa00; color:#000">FOLGAS</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
+
+        <!-- CAIXA DE FÉRIAS -->
+        <div class="sector-box" id="sec-ferias"><div class="sector-header" style="background:#27ae60; color:#fff">FÉRIAS</div><div class="drop-zone ferias-box" id="dz-ferias" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
     </div>
     
     <div class="sector-container">
@@ -86,8 +92,13 @@
             const novoSetorId = sector ? sector.id : 'sec-folga';
             const setorAntigo = card.dataset.lastSector || 'sec-folga';
             targetZone.appendChild(card);
+            
             if (novoSetorId === 'sec-folga') {
                 card.dataset.cicloStart = ""; 
+            } else if (novoSetorId === 'sec-ferias') {
+                card.dataset.cicloStart = "";
+                if (setorAntigo !== 'sec-ferias') card.dataset.localStart = Date.now();
+                card.dataset.lastSector = novoSetorId;
             } else {
                 if (novoSetorId !== setorAntigo && setorAntigo !== 'sec-folga') card.dataset.localStart = Date.now();
                 if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
@@ -138,11 +149,11 @@
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, lastSector: c.dataset.lastSector, id: c.id });
         });
-        localStorage.setItem('blp_escala_final_v6', JSON.stringify(state));
+        localStorage.setItem('blp_escala_final_v7', JSON.stringify(state));
     }
 
     function loadState() {
-        const raw = localStorage.getItem('blp_escala_final_v6');
+        const raw = localStorage.getItem('blp_escala_final_v7');
         if (!raw) {
             nomesIniciais.forEach(n => criarPessoa(n));
             addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
@@ -166,7 +177,7 @@
         });
     }
 
-    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v6'); location.reload(); } }
+    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v7'); location.reload(); } }
 
     function atualizarDataAmanha() {
         const amanha = new Date();
@@ -184,14 +195,24 @@
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
-            if (l && l !== "undefined" && l !== "") {
-                const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                tL.innerText = `Neste terminal há: ${dias} dia(s)`;
-            } else { tL.innerText = "S/ REGISTRO"; }
-            if (c && c !== "undefined" && c !== "" && card.parentElement.id !== 'dz-folga') {
-                const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000);
-                tC.innerText = `Trabalhando há ${diasC + 1} dias`;
-            } else { tC.innerText = "FOLGA"; }
+            const parent = card.parentElement.id;
+            
+            if (parent === 'dz-ferias') {
+                if (l && l !== "undefined" && l !== "") {
+                    const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                    tL.innerText = `Em férias há: ${dias} dia(s)`;
+                } else { tL.innerText = "EM FÉRIAS HÁ: hoje"; }
+                tC.innerText = "-";
+            } else {
+                if (l && l !== "undefined" && l !== "") {
+                    const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                    tL.innerText = `Neste terminal há: ${dias} dia(s)`;
+                } else { tL.innerText = "S/ REGISTRO"; }
+                if (c && c !== "undefined" && c !== "" && parent !== 'dz-folga') {
+                    const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000);
+                    tC.innerText = `Trabalhando há ${diasC + 1} dias`;
+                } else { tC.innerText = "FOLGA"; }
+            }
         });
     }, 1000);
 
