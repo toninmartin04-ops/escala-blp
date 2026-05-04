@@ -18,22 +18,13 @@
         .timer-local { color: #d35400; font-weight: bold; display: block; font-size: 10px; }
         .timer-ciclo { color: #2980b9; display: block; font-size: 10px; border-top: 1px solid #eee; }
         .btn-add { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; font-weight: bold; }
-        
-        /* CAIXAS ESPECIAIS (FOLGA E FÉRIAS) */
         .folga-box { min-height: 100px; }
         .ferias-box { background: #d5f5e3 !important; min-height: 100px; border: 2px dashed #2ecc71; }
-
-        /* ESTILO DO LOGO BLP - IMAGEM GRANDE */
         .blp-container { margin-bottom: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .blp-date { background-color: #f58220; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px; text-transform: uppercase; }
         .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 10px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 160px; }
         .blp-logo-box img { max-width: 100%; max-height: 150px; object-fit: contain; }
-
-        /* REGRAS PARA A FOTO (O QUE SOME NA EXPORTAÇÃO) */
-        .export-mode .admin-panel, 
-        .export-mode .btn-del, 
-        .export-mode .btn-add, 
-        .export-mode .admin-info { display: none !important; }
+        .export-mode .admin-panel, .export-mode .btn-del, .export-mode .btn-add, .export-mode .admin-info { display: none !important; }
         .export-mode .main-container { background-color: #3b6fb6; width: 1400px; padding: 30px; }
         .export-mode .card { padding: 15px; border-left: none; border: 1px solid #eee;}
     </style>
@@ -53,23 +44,14 @@
         <div class="sector-box" id="sec-maxi"><div class="sector-header">MAXIPORT</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-maxi')">+ TURNO</button></div>
         <div class="sector-box" id="sec-garra"><div class="sector-header">GARRA</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-garra')">+ TURNO</button></div>
     </div>
-    
     <div class="center-col">
-        <!-- NOVA LOGO COM DATA AUTOMÁTICA E IMAGEM (Puxando do GitHub) -->
         <div class="blp-container">
             <div id="data-amanha" class="blp-date">CARREGANDO DATA...</div>
-            <div class="blp-logo-box">
-                <img src="BLP.png" alt="Logo BLP">
-            </div>
+            <div class="blp-logo-box"><img src="BLP.png" alt="Logo BLP"></div>
         </div>
-        
-        <!-- CAIXA DE FOLGAS (Agora padronizada laranja) -->
         <div class="sector-box" id="sec-folga"><div class="sector-header">FOLGAS</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
-
-        <!-- CAIXA DE FÉRIAS -->
         <div class="sector-box" id="sec-ferias"><div class="sector-header" style="background:#27ae60; color:#fff">FÉRIAS</div><div class="drop-zone ferias-box" id="dz-ferias" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
     </div>
-    
     <div class="sector-container">
         <div class="sector-box" id="sec-sanry"><div class="sector-header">SANRY</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-sanry')">+ TURNO</button></div>
         <div class="sector-box" id="sec-almox"><div class="sector-header">ESTOQUE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
@@ -78,6 +60,7 @@
 
 <script>
     const nomesIniciais = ["KAIO", "THIAGO", "LUCAS SILVEIRA", "AIRTON", "MARCOS", "ADRIAN", "RICARDO", "KAIO CORREA", "CAIO B", "PEDRO", "ALAN", "ANDRE", "ALISON", "HALEFI", "JOÃO LUCAS", "ANTONIO", "BRUNO", "ROBERTO", "NATHAN", "MATHEUS", "MARTIM", "RENAN"];
+    let isLoading = false; // TRAVA DE SEGURANÇA
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -88,12 +71,10 @@
         const card = document.getElementById(data);
         const targetZone = ev.target.closest('.drop-zone');
         const sector = ev.target.closest('.sector-box');
-        
         if (targetZone) {
             const novoSetorId = sector ? sector.id : 'sec-folga';
             const setorAntigo = card.dataset.lastSector || 'sec-folga';
             targetZone.appendChild(card);
-            
             if (novoSetorId === 'sec-folga') {
                 card.dataset.cicloStart = ""; 
             } else if (novoSetorId === 'sec-ferias') {
@@ -121,9 +102,7 @@
         const id = idManual || 'p-' + Math.random().toString(36).substr(2, 9);
         const card = document.createElement('div');
         card.className = 'card'; card.id = id; card.draggable = true; card.ondragstart = drag;
-        card.innerHTML = `<button class="btn-del" onclick="removerFuncionario('${id}')">x</button>
-                          <span class="name">${n}</span>
-                          <div class="admin-info"><span class="timer-local"></span><span class="timer-ciclo"></span></div>`;
+        card.innerHTML = `<button class="btn-del" onclick="removerFuncionario('${id}')">x</button><span class="name">${n}</span><div class="admin-info"><span class="timer-local"></span><span class="timer-ciclo"></span></div>`;
         document.getElementById('dz-folga').appendChild(card);
         return card;
     }
@@ -139,6 +118,7 @@
     }
 
     function saveState() {
+        if (isLoading) return; // NÃO SALVA SE ESTIVER CARREGANDO
         const state = { sectors: [], people: [] };
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
@@ -150,11 +130,12 @@
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, lastSector: c.dataset.lastSector, id: c.id });
         });
-        localStorage.setItem('blp_escala_final_v8', JSON.stringify(state));
+        localStorage.setItem('blp_escala_final_v9_fix', JSON.stringify(state));
     }
 
     function loadState() {
-        const raw = localStorage.getItem('blp_escala_final_v8');
+        isLoading = true; // ATIVA TRAVA
+        const raw = localStorage.getItem('blp_escala_final_v9_fix');
         if (!raw) {
             nomesIniciais.forEach(n => criarPessoa(n));
             addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
@@ -164,6 +145,7 @@
             addShift('sec-sanry', 'TURNO A 06:00 AS 14:20');
             addShift('sec-sanry', 'TURNO B 14:00 AS 22:20');
             addShift('sec-almox', 'TURNO A 06:00 AS 14:20');
+            isLoading = false;
             return;
         }
         const state = JSON.parse(raw);
@@ -176,9 +158,10 @@
             const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
             dest.appendChild(card);
         });
+        isLoading = false; // LIBERA SALVAMENTO
     }
 
-    function resetGeral() { if(confirm("Isso apagará toda a memória e resetará a lista de nomes e turnos. Confirmar?")) { localStorage.removeItem('blp_escala_final_v8'); location.reload(); } }
+    function resetGeral() { if(confirm("Zerar tudo?")) { localStorage.removeItem('blp_escala_final_v9_fix'); location.reload(); } }
 
     function atualizarDataAmanha() {
         const amanha = new Date();
@@ -197,12 +180,11 @@
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
             const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
             const parent = card.parentElement.id;
-            
             if (parent === 'dz-ferias') {
                 if (l && l !== "undefined" && l !== "") {
                     const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
                     tL.innerText = `Em férias há: ${dias} dia(s)`;
-                } else { tL.innerText = "EM FÉRIAS HÁ: hoje"; }
+                } else { tL.innerText = "FÉRIAS: hoje"; }
                 tC.innerText = "-";
             } else {
                 if (l && l !== "undefined" && l !== "") {
@@ -229,10 +211,7 @@
             });
         }, 100);
     }
-    window.onload = () => {
-        loadState();
-        atualizarDataAmanha();
-    };
+    window.onload = () => { loadState(); atualizarDataAmanha(); };
 </script>
 </body>
 </html>
