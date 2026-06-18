@@ -14,15 +14,25 @@
         .shift-header { background: #b0c4de; color: #333; font-size: 12px; padding: 4px 25px; text-align: center; font-weight: bold; outline: none; }
         .shift-header:focus { background: #9cb4cc; }
         .drop-zone { padding: 8px; min-height: 60px; display: flex; flex-wrap: wrap; gap: 8px; background: #fff; border: 1px dashed #eee; justify-content: center; }
+        
         .card { background: white; padding: 10px; border-radius: 4px; border-left: 5px solid #3b6fb6; cursor: grab; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; min-width: 130px; position: relative; }
         .name { font-weight: bold; display: block; font-size: 13px; text-transform: uppercase; padding-right: 15px; }
+        
+        /* BOTÕES DE EXCLUSÃO */
         .btn-del { position: absolute; top: 2px; right: 2px; color: #c0392b; cursor: pointer; font-weight: bold; font-size: 12px; border: none; background: none; padding: 2px 5px; }
         .btn-del-shift { position: absolute; top: 3px; left: 3px; color: #fff; background: #c0392b; cursor: pointer; font-weight: bold; font-size: 10px; border: none; border-radius: 3px; padding: 2px 5px; z-index: 10; }
         .btn-del-shift:hover { background: #e74c3c; }
 
+        /* TEMPORIZADORES */
         .timer-local { color: #d35400; font-weight: bold; display: block; font-size: 10px; }
         .timer-ciclo { display: block; font-size: 10px; border-top: 1px solid #eee; margin-top: 3px; padding-top: 2px; color: #2980b9; }
         
+        /* TAGS (DOMINGO E FOLGA EXTRA) */
+        .tags-container { display: flex; justify-content: center; gap: 5px; margin-top: 5px; }
+        .tag-btn { font-size: 9px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: #eee; font-weight: bold; color: #7f8c8d; }
+        .tag-btn.dom-active { background: #c0392b; color: white; border-color: #a5281b; }
+        .tag-btn.ext-active { background: #27ae60; color: white; border-color: #1e8449; }
+
         /* ANIMAÇÃO E CORES DE ALERTA */
         @keyframes pisca { 0% { opacity: 1; } 50% { opacity: 0.3; color: #ff0000; } 100% { opacity: 1; } }
         .alerta-laranja { color: #d35400 !important; font-weight: bold; }
@@ -37,7 +47,7 @@
         .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 10px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 160px; }
         .blp-logo-box img { max-width: 100%; max-height: 150px; object-fit: contain; }
 
-        .export-mode .admin-panel, .export-mode .btn-del, .export-mode .btn-del-shift, .export-mode .btn-add, .export-mode .admin-info { display: none !important; }
+        .export-mode .admin-panel, .export-mode .btn-del, .export-mode .btn-del-shift, .export-mode .btn-add { display: none !important; }
         .export-mode .main-container { background-color: #3b6fb6; width: 1400px; padding: 30px; }
         .export-mode .card { padding: 15px; border-left: none; border: 1px solid #eee;}
     </style>
@@ -89,7 +99,6 @@
             const novoSetorId = sector ? sector.id : 'sec-folga';
             const setorAntigo = card.dataset.lastSector || 'sec-folga';
             
-            // Lógica de palavras-chave para zerar
             const shiftHeaderElem = targetZone.previousElementSibling;
             const shiftTitle = shiftHeaderElem && shiftHeaderElem.classList.contains('shift-header') ? shiftHeaderElem.innerText.toUpperCase() : "";
             const sectorTitle = sector ? sector.querySelector('.sector-header').innerText.toUpperCase() : "";
@@ -102,7 +111,12 @@
             
             if (isDescanso) {
                 card.dataset.cicloStart = ""; 
-                // Se a palavra for férias, inicia contador local
+                // Automação: Zerar as tags se for folga
+                card.dataset.domingo = "false";
+                card.dataset.extra = "false";
+                card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
+                card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
+
                 if (novoSetorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA')) {
                     if (setorAntigo !== 'sec-ferias') card.dataset.localStart = Date.now();
                 }
@@ -112,9 +126,29 @@
                 if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
+
+                // Automação: Se for domingo e colocar pra trabalhar, ativa a tag DOM
+                if (new Date().getDay() === 0) {
+                    card.dataset.domingo = "true";
+                    card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
+                }
             }
             saveState();
         }
+    }
+
+    function toggleTag(id, tagType) {
+        const card = document.getElementById(id);
+        if (tagType === 'domingo') {
+            let isAtivo = card.dataset.domingo === "true";
+            card.dataset.domingo = isAtivo ? "false" : "true";
+            card.querySelector('.tag-btn:nth-child(1)').classList.toggle('dom-active', !isAtivo);
+        } else {
+            let isAtivo = card.dataset.extra === "true";
+            card.dataset.extra = isAtivo ? "false" : "true";
+            card.querySelector('.tag-btn:nth-child(2)').classList.toggle('ext-active', !isAtivo);
+        }
+        saveState();
     }
 
     function addShift(sectorId, title = "TURNO A 06:00 AS 14:20", idManual) {
@@ -138,18 +172,34 @@
         if (confirm("Deseja excluir este turno?")) { shiftBox.remove(); saveState(); }
     }
 
-    function criarPessoa(n, idManual) {
+    function criarPessoa(n, idManual, dom = "false", ext = "false") {
         const id = idManual || 'p-' + Math.random().toString(36).substr(2, 9);
         const card = document.createElement('div');
         card.className = 'card'; card.id = id; card.draggable = true; card.ondragstart = drag;
-        card.innerHTML = `<button class="btn-del" onclick="removerFuncionario('${id}')" title="Excluir Funcionário">x</button><span class="name">${n}</span><div class="admin-info"><span class="timer-local"></span><span class="timer-ciclo"></span></div>`;
-        document.getElementById('dz-folga').appendChild(card);
+        card.dataset.domingo = dom; card.dataset.extra = ext;
+        
+        let domCls = dom === "true" ? "dom-active" : "";
+        let extCls = ext === "true" ? "ext-active" : "";
+
+        card.innerHTML = `
+            <button class="btn-del" onclick="removerFuncionario('${id}')" title="Excluir Funcionário">x</button>
+            <span class="name">${n}</span>
+            <div class="admin-info"><span class="timer-local"></span><span class="timer-ciclo"></span></div>
+            <div class="tags-container">
+                <button class="tag-btn ${domCls}" onclick="toggleTag('${id}', 'domingo')">DOM</button>
+                <button class="tag-btn ${extCls}" onclick="toggleTag('${id}', 'extra')">EXT</button>
+            </div>
+        `;
         return card;
     }
 
     function adicionarManual() {
         const input = document.getElementById('novoFuncionario');
-        if (input.value.trim().toUpperCase()) { criarPessoa(input.value.trim().toUpperCase()); input.value = ""; saveState(); }
+        if (input.value.trim().toUpperCase()) { 
+            const card = criarPessoa(input.value.trim().toUpperCase()); 
+            document.getElementById('dz-folga').appendChild(card);
+            input.value = ""; saveState(); 
+        }
     }
 
     function removerFuncionario(id) {
@@ -167,8 +217,18 @@
             state.sectors.push({ id: sb.id, name: sb.querySelector('.sector-header').innerText, shifts: shifts });
         });
         document.querySelectorAll('.card').forEach(c => {
-            state.people.push({ name: c.querySelector('.name').innerText, parent: c.parentElement.id, localStart: c.dataset.localStart, cicloStart: c.dataset.cicloStart, lastSector: c.dataset.lastSector, id: c.id });
+            state.people.push({ 
+                name: c.querySelector('.name').innerText, 
+                parent: c.parentElement.id, 
+                localStart: c.dataset.localStart, 
+                cicloStart: c.dataset.cicloStart, 
+                lastSector: c.dataset.lastSector, 
+                id: c.id,
+                domingo: c.dataset.domingo,
+                extra: c.dataset.extra
+            });
         });
+        // ATENÇÃO: Mantive a MESMA chave para não apagar seus dados
         localStorage.setItem('blp_escala_final_v10_alertas', JSON.stringify(state));
     }
 
@@ -176,7 +236,10 @@
         isLoading = true; 
         const raw = localStorage.getItem('blp_escala_final_v10_alertas');
         if (!raw) {
-            nomesIniciais.forEach(n => criarPessoa(n));
+            nomesIniciais.forEach(n => {
+                const card = criarPessoa(n);
+                document.getElementById('dz-folga').appendChild(card);
+            });
             addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
             addShift('sec-maxi', 'TURNO B 14:00 AS 22:20');
             addShift('sec-maxi', 'TURNO C 22:00 AS 06:20');
@@ -193,7 +256,8 @@
             s.shifts.forEach(sh => addShift(s.id, sh.title, sh.id));
         });
         state.people.forEach(p => {
-            const card = criarPessoa(p.name, p.id);
+            // Se as tags vierem indefinidas dos dados antigos, usa "false"
+            const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false");
             card.dataset.localStart = p.localStart || "";
             card.dataset.cicloStart = p.cicloStart || "";
             card.dataset.lastSector = p.lastSector || "sec-folga";
@@ -228,6 +292,9 @@
             const isFerias = sectorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA');
             const isDescanso = sectorId === 'sec-folga' || isFerias || ['FOLGA', 'ATESTADO', 'DESCANSO'].some(p => shiftTitle.includes(p) || sectorTitle.includes(p));
 
+            const trabalhouDomingo = card.dataset.domingo === "true";
+            const folgaExtra = card.dataset.extra === "true";
+
             if (isFerias) {
                 if (l && l !== "undefined" && l !== "") {
                     const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
@@ -246,11 +313,22 @@
                 } else {
                     if (c && c !== "undefined" && c !== "") {
                         const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000) + 1;
-                        if (diasC >= 14) {
+                        
+                        // LÓGICA DO ALERTA (Variável)
+                        let limitPisca = 14, limitVermelho = 10, limitLaranja = 7;
+                        
+                        // Se trabalhou domingo e NÃO ganhou folga extra, avisa super rápido
+                        if (trabalhouDomingo && !folgaExtra) {
+                            limitPisca = 6;
+                            limitVermelho = 5;
+                            limitLaranja = 4;
+                        }
+
+                        if (diasC >= limitPisca) {
                             tC.innerHTML = `<span class="alerta-pisca">Trabalhando há ${diasC} dias ⚠️</span>`;
-                        } else if (diasC >= 10) {
+                        } else if (diasC >= limitVermelho) {
                             tC.innerHTML = `<span class="alerta-vermelho">Trabalhando há ${diasC} dias</span>`;
-                        } else if (diasC >= 7) {
+                        } else if (diasC >= limitLaranja) {
                             tC.innerHTML = `<span class="alerta-laranja">Trabalhando há ${diasC} dias</span>`;
                         } else {
                             tC.innerHTML = `Trabalhando há ${diasC} dias`;
