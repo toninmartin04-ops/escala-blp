@@ -119,7 +119,7 @@
             
             if (isDescanso) {
                 card.dataset.cicloStart = ""; 
-                // Automação: Zerar as tags se for folga
+                // Zera as tags automáticas e manuais se foi para descanso/folga/atestado
                 card.dataset.domingo = "false";
                 card.dataset.extra = "false";
                 card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
@@ -135,7 +135,7 @@
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
 
-                // Automação: Se for domingo e colocar pra trabalhar, ativa a tag DOM
+                // CORREÇÃO: Se hoje for domingo (0) e foi colocado para trabalhar em posto operacional, marca como trabalhado
                 if (new Date().getDay() === 0) {
                     card.dataset.domingo = "true";
                     card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
