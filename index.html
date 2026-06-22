@@ -67,7 +67,9 @@
     <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
     <input type="text" id="novoFuncionario" placeholder="NOME DO FUNCIONÁRIO">
     <button class="btn-add" onclick="adicionarManual()">+ CADASTRAR</button>
-    <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-left: auto;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
+    
+    <button style="background:#f39c12; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-left: auto;" onclick="resetarDias()">🔄 ZERAR DIAS</button>
+    <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
 </div>
 
 <div class="main-container" id="painel">
@@ -119,7 +121,7 @@
             
             if (isDescanso) {
                 card.dataset.cicloStart = ""; 
-                // Zera as tags automáticas e manuais se foi para descanso/folga/atestado
+                // Automação: Zerar as tags se for folga
                 card.dataset.domingo = "false";
                 card.dataset.extra = "false";
                 card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
@@ -135,7 +137,7 @@
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
 
-                // CORREÇÃO: Se hoje for domingo (0) e foi colocado para trabalhar em posto operacional, marca como trabalhado
+                // Automação: Se for domingo e colocar pra trabalhar, ativa a tag DOM
                 if (new Date().getDay() === 0) {
                     card.dataset.domingo = "true";
                     card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
@@ -214,6 +216,28 @@
 
     function removerFuncionario(id) {
         if (confirm("Remover funcionário do sistema?")) { document.getElementById(id).remove(); saveState(); }
+    }
+
+    /* FUNÇÃO NOVA: ZERAR DIAS */
+    function resetarDias() {
+        if(confirm("Deseja zerar os dias trabalhados e domingos de TODOS os funcionários? Eles continuarão nos turnos atuais, mas a contagem recomeçará do zero.")) {
+            document.querySelectorAll('.card').forEach(card => {
+                const sectorId = card.closest('.sector-box').id;
+                
+                // Se estiver na folga/ferias, deixa vazio, senão começa a contar de hoje
+                if (sectorId === 'sec-folga' || sectorId === 'sec-ferias') {
+                    card.dataset.cicloStart = "";
+                } else {
+                    card.dataset.cicloStart = Date.now();
+                }
+
+                card.dataset.domingo = "false";
+                card.dataset.extra = "false";
+                card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
+                card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
+            });
+            saveState();
+        }
     }
 
     function saveState() {
