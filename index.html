@@ -137,8 +137,12 @@
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
 
-                // Automação: Se for domingo e colocar pra trabalhar, ativa a tag DOM
-                if (new Date().getDay() === 0) {
+                // CORREÇÃO DA AUTOMAÇÃO DO DOMINGO
+                // Verifica a data da escala (amanhã), e não o dia do sistema hoje
+                const dataEscala = new Date();
+                dataEscala.setDate(dataEscala.getDate() + 1);
+                
+                if (dataEscala.getDay() === 0) {
                     card.dataset.domingo = "true";
                     card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
                 }
@@ -218,13 +222,11 @@
         if (confirm("Remover funcionário do sistema?")) { document.getElementById(id).remove(); saveState(); }
     }
 
-    /* FUNÇÃO NOVA: ZERAR DIAS */
     function resetarDias() {
         if(confirm("Deseja zerar os dias trabalhados e domingos de TODOS os funcionários? Eles continuarão nos turnos atuais, mas a contagem recomeçará do zero.")) {
             document.querySelectorAll('.card').forEach(card => {
                 const sectorId = card.closest('.sector-box').id;
                 
-                // Se estiver na folga/ferias, deixa vazio, senão começa a contar de hoje
                 if (sectorId === 'sec-folga' || sectorId === 'sec-ferias') {
                     card.dataset.cicloStart = "";
                 } else {
