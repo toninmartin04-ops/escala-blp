@@ -96,15 +96,16 @@
 </div>
 
 <script>
-    // CONFIGURAÇÃO DO FIREBASE (NUVEM)
+    // NOVA CONFIGURAÇÃO DO FIREBASE (NUVEM)
     const firebaseConfig = {
-      apiKey: "AIzaSyA8qcM3UY98DwDA8w_tYNG7jzWvaS3Om3E",
-      authDomain: "teste-bfe9c.firebaseapp.com",
-      projectId: "teste-bfe9c",
-      storageBucket: "teste-bfe9c.firebasestorage.app",
-      messagingSenderId: "1077609061127",
-      appId: "1:1077609061127:web:623cca69a920e206ad83a2"
+      apiKey: "AIzaSyBov1QxK0YIgxZJeHZU3mYJKhnJY9OSP84",
+      authDomain: "escala-eb6ca.firebaseapp.com",
+      projectId: "escala-eb6ca",
+      storageBucket: "escala-eb6ca.firebasestorage.app",
+      messagingSenderId: "667395061814",
+      appId: "1:667395061814:web:18a336bf1e3deb7ccb4097"
     };
+    
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -282,6 +283,7 @@
 
         try {
             await db.collection("escala_blp").doc("dados_atuais").set(state);
+            console.log("Salvo com sucesso!");
         } catch(e) {
             console.error("Erro ao salvar no Firebase:", e);
         }
@@ -296,7 +298,7 @@
             const doc = await db.collection("escala_blp").doc("dados_atuais").get();
             
             if (!doc.exists) {
-                // Primeira vez abrindo o Firebase vazio - Monta exatamente a escala da foto do usuário
+                // Primeira vez abrindo o Firebase vazio - Monta a escala da foto
                 
                 // 1. Criar os turnos fixos
                 addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
@@ -367,6 +369,7 @@
             
         } catch(e) {
             console.error("Erro ao puxar dados do Firebase:", e);
+            alert("Erro ao conectar no banco de dados. O Firebase está em Modo de Teste?");
         }
         
         isLoading = false;
@@ -388,7 +391,7 @@
     }
 
     setInterval(() => {
-        if (isLoading) return; // Pausa o cronômetro enquanto carrega da nuvem
+        if (isLoading) return; 
         atualizarDataAmanha(); 
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
