@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- SDK DO FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
     <style>
         body { background-color: #3b6fb6; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; color: #333; }
         .admin-panel { background: rgba(255,255,255,0.9); padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-wrap: wrap; }
@@ -92,7 +96,18 @@
 </div>
 
 <script>
-    const nomesIniciais = ["KAIO", "THIAGO", "LUCAS SILVEIRA", "AIRTON", "MARCOS", "ADRIAN", "RICARDO", "KAIO CORREA", "CAIO B", "PEDRO", "ALAN", "ANDRE", "ALISON", "HALEFI", "JOÃO LUCAS", "ANTONIO", "BRUNO", "ROBERTO", "NATHAN", "MATHEUS", "MARTIM", "RENAN"];
+    // CONFIGURAÇÃO DO FIREBASE (NUVEM)
+    const firebaseConfig = {
+      apiKey: "AIzaSyA8qcM3UY98DwDA8w_tYNG7jzWvaS3Om3E",
+      authDomain: "teste-bfe9c.firebaseapp.com",
+      projectId: "teste-bfe9c",
+      storageBucket: "teste-bfe9c.firebasestorage.app",
+      messagingSenderId: "1077609061127",
+      appId: "1:1077609061127:web:623cca69a920e206ad83a2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
     let isLoading = false;
 
     function allowDrop(ev) { ev.preventDefault(); }
@@ -121,7 +136,6 @@
             
             if (isDescanso) {
                 card.dataset.cicloStart = ""; 
-                // Automação: Zerar as tags se for folga
                 card.dataset.domingo = "false";
                 card.dataset.extra = "false";
                 card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
@@ -137,8 +151,6 @@
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
 
-                // CORREÇÃO DA AUTOMAÇÃO DO DOMINGO
-                // Verifica a data da escala (amanhã), e não o dia do sistema hoje
                 const dataEscala = new Date();
                 dataEscala.setDate(dataEscala.getDate() + 1);
                 
@@ -242,9 +254,11 @@
         }
     }
 
-    function saveState() {
+    // SALVAR NA NUVEM
+    async function saveState() {
         if (isLoading) return; 
         const state = { sectors: [], people: [] };
+        
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
             sb.querySelectorAll('.shift-box').forEach(sh => {
@@ -252,6 +266,7 @@
             });
             state.sectors.push({ id: sb.id, name: sb.querySelector('.sector-header').innerText, shifts: shifts });
         });
+        
         document.querySelectorAll('.card').forEach(c => {
             state.people.push({ 
                 name: c.querySelector('.name').innerText, 
@@ -264,44 +279,106 @@
                 extra: c.dataset.extra
             });
         });
-        localStorage.setItem('blp_escala_final_v10_alertas', JSON.stringify(state));
-    }
 
-    function loadState() {
-        isLoading = true; 
-        const raw = localStorage.getItem('blp_escala_final_v10_alertas');
-        if (!raw) {
-            nomesIniciais.forEach(n => {
-                const card = criarPessoa(n);
-                document.getElementById('dz-folga').appendChild(card);
-            });
-            addShift('sec-maxi', 'TURNO A 06:00 AS 14:20');
-            addShift('sec-maxi', 'TURNO B 14:00 AS 22:20');
-            addShift('sec-maxi', 'TURNO C 22:00 AS 06:20');
-            addShift('sec-garra', 'TURNO A 06:00 AS 14:20');
-            addShift('sec-sanry', 'TURNO A 06:00 AS 14:20');
-            addShift('sec-sanry', 'TURNO B 14:00 AS 22:20');
-            addShift('sec-almox', 'TURNO A 06:00 AS 14:20');
-            isLoading = false;
-            return;
+        try {
+            await db.collection("escala_blp").doc("dados_atuais").set(state);
+        } catch(e) {
+            console.error("Erro ao salvar no Firebase:", e);
         }
-        const state = JSON.parse(raw);
-        state.sectors.forEach(s => {
-            if (s.name) { const h = document.querySelector(`#${s.id} .sector-header`); if (h) h.innerText = s.name; }
-            s.shifts.forEach(sh => addShift(s.id, sh.title, sh.id));
-        });
-        state.people.forEach(p => {
-            const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false");
-            card.dataset.localStart = p.localStart || "";
-            card.dataset.cicloStart = p.cicloStart || "";
-            card.dataset.lastSector = p.lastSector || "sec-folga";
-            const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
-            dest.appendChild(card);
-        });
-        isLoading = false; 
     }
 
-    function resetGeral() { if(confirm("Zerar toda a escala?")) { localStorage.removeItem('blp_escala_final_v10_alertas'); location.reload(); } }
+    // CARREGAR DA NUVEM
+    async function loadState() {
+        isLoading = true; 
+        document.getElementById('data-amanha').innerText = "CARREGANDO DADOS DA NUVEM...";
+        
+        try {
+            const doc = await db.collection("escala_blp").doc("dados_atuais").get();
+            
+            if (!doc.exists) {
+                // Primeira vez abrindo o Firebase vazio - Monta exatamente a escala da foto do usuário
+                
+                // 1. Criar os turnos fixos
+                addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
+                addShift('sec-maxi', 'TURNO B 14:00 AS 22:20', 'dz-maxi-b');
+                addShift('sec-maxi', 'TURNO C 22:00 AS 06:20', 'dz-maxi-c');
+                
+                addShift('sec-garra', 'TURNO A 06:00 AS 14:20', 'dz-garra-a');
+                
+                addShift('sec-sanry', 'TURNO A 06:00 AS 14:20', 'dz-sanry-a');
+                addShift('sec-sanry', 'TURNO B 14:00 AS 22:20', 'dz-sanry-b');
+                addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
+                
+                addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
+
+                // 2. Criar a galera já nos lugares certos da foto
+                const galeraFoto = [
+                    { n: "MATHEUS", d: "dz-maxi-a" }, { n: "MARTIM", d: "dz-maxi-a" }, { n: "ROBERTO", d: "dz-maxi-a" }, { n: "VINICIUS", d: "dz-maxi-a" },
+                    { n: "BRUNO", d: "dz-maxi-b" }, { n: "ANSELMO", d: "dz-maxi-b" }, { n: "CAIO B", d: "dz-maxi-b" }, { n: "FLAVIO", d: "dz-maxi-b" }, { n: "LUCAS SILVEIRA", d: "dz-maxi-b" },
+                    { n: "ANTONIO", d: "dz-maxi-c" }, { n: "MARCOS", d: "dz-maxi-c" }, { n: "HALEFI", d: "dz-maxi-c" }, { n: "KAIO CORREA", d: "dz-maxi-c" },
+                    { n: "RICARDO", d: "dz-sanry-a" }, { n: "AIRTON", d: "dz-sanry-a" }, { n: "ALISON", d: "dz-sanry-a" },
+                    { n: "THIAGO", d: "dz-sanry-b" }, { n: "JOÃO LUCAS", d: "dz-sanry-b" }, { n: "ANDRE", d: "dz-sanry-b" },
+                    { n: "LUCAS OLIVEIRA", d: "dz-sanry-c" }, { n: "KAIO", d: "dz-sanry-c" },
+                    { n: "ALAN", d: "dz-ferias" }
+                ];
+                
+                // 3. Pessoas antigas que não estavam na foto, pra não perder o cadastro
+                const perdidos = ["ADRIAN", "PEDRO", "NATHAN", "RENAN"];
+                perdidos.forEach(p => galeraFoto.push({ n: p, d: "dz-folga" }));
+
+                galeraFoto.forEach(p => {
+                    const card = criarPessoa(p.n);
+                    const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
+                    dest.appendChild(card);
+                    
+                    // Configura os tempos e memórias iniciais
+                    if (p.d === 'dz-folga' || p.d === 'dz-ferias') {
+                        card.dataset.lastSector = p.d === 'dz-ferias' ? 'sec-ferias' : 'sec-folga';
+                        card.dataset.cicloStart = "";
+                        if (p.d === 'dz-ferias') card.dataset.localStart = Date.now();
+                    } else {
+                        card.dataset.lastSector = document.getElementById(p.d).closest('.sector-box').id;
+                        card.dataset.localStart = Date.now();
+                        card.dataset.cicloStart = Date.now();
+                    }
+                });
+
+                isLoading = false;
+                saveState(); // Salva essa estrutura inicial perfeita na nuvem
+                atualizarDataAmanha(); 
+                return;
+            }
+
+            const state = doc.data();
+            
+            state.sectors.forEach(s => {
+                if (s.name) { const h = document.querySelector(`#${s.id} .sector-header`); if (h) h.innerText = s.name; }
+                s.shifts.forEach(sh => addShift(s.id, sh.title, sh.id));
+            });
+            
+            state.people.forEach(p => {
+                const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false");
+                card.dataset.localStart = p.localStart || "";
+                card.dataset.cicloStart = p.cicloStart || "";
+                card.dataset.lastSector = p.lastSector || "sec-folga";
+                const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
+                dest.appendChild(card);
+            });
+            
+        } catch(e) {
+            console.error("Erro ao puxar dados do Firebase:", e);
+        }
+        
+        isLoading = false;
+        atualizarDataAmanha(); 
+    }
+
+    async function resetGeral() { 
+        if(confirm("ATENÇÃO: Deseja apagar toda a escala do servidor para todos os usuários?")) { 
+            await db.collection("escala_blp").doc("dados_atuais").delete();
+            location.reload(); 
+        } 
+    }
 
     function atualizarDataAmanha() {
         const amanha = new Date();
@@ -311,6 +388,7 @@
     }
 
     setInterval(() => {
+        if (isLoading) return; // Pausa o cronômetro enquanto carrega da nuvem
         atualizarDataAmanha(); 
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
@@ -383,7 +461,8 @@
             });
         }, 100);
     }
-    window.onload = () => { loadState(); atualizarDataAmanha(); };
+    
+    window.onload = () => { loadState(); };
 </script>
 </body>
 </html>
