@@ -32,10 +32,13 @@
         .timer-ciclo { display: block; font-size: 10px; border-top: 1px solid #eee; margin-top: 3px; padding-top: 2px; color: #2980b9; }
         
         /* TAGS (DOMINGO E FOLGA EXTRA) */
-        .tags-container { display: flex; justify-content: center; gap: 5px; margin-top: 5px; }
+        .tags-container { display: flex; justify-content: center; gap: 5px; margin-top: 5px; align-items: center; }
         .tag-btn { font-size: 9px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: #eee; font-weight: bold; color: #7f8c8d; }
         .tag-btn.dom-active { background: #c0392b; color: white; border-color: #a5281b; }
         .tag-btn.ext-active { background: #27ae60; color: white; border-color: #1e8449; }
+        
+        /* BADGE DE DOMINGOS SEGUIDOS */
+        .domingos-consecutivos-badge { font-size: 9px; background: #e74c3c; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; }
 
         /* ANIMAÇÃO E CORES DE ALERTA */
         @keyframes pisca { 0% { opacity: 1; } 50% { opacity: 0.3; color: #ff0000; } 100% { opacity: 1; } }
@@ -96,7 +99,6 @@
 </div>
 
 <script>
-    // NOVA CONFIGURAÇÃO DO FIREBASE (NUVEM)
     const firebaseConfig = {
       apiKey: "AIzaSyBov1QxK0YIgxZJeHZU3mYJKhnJY9OSP84",
       authDomain: "escala-eb6ca.firebaseapp.com",
@@ -158,6 +160,11 @@
                 if (dataEscala.getDay() === 0) {
                     card.dataset.domingo = "true";
                     card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
+                    
+                    // Incrementa domingos seguidos se marcou domingo
+                    let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
+                    card.dataset.domingosConsecutivos = domSeguidos;
+                    atualizarBadgeDomingos(card, domSeguidos);
                 }
             }
             saveState();
@@ -170,12 +177,35 @@
             let isAtivo = card.dataset.domingo === "true";
             card.dataset.domingo = isAtivo ? "false" : "true";
             card.querySelector('.tag-btn:nth-child(1)').classList.toggle('dom-active', !isAtivo);
+            
+            let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0");
+            if (!isAtivo) {
+                domSeguidos += 1;
+            } else {
+                domSeguidos = Math.max(0, domSeguidos - 1);
+            }
+            card.dataset.domingosConsecutivos = domSeguidos;
+            atualizarBadgeDomingos(card, domSeguidos);
         } else {
             let isAtivo = card.dataset.extra === "true";
             card.dataset.extra = isAtivo ? "false" : "true";
             card.querySelector('.tag-btn:nth-child(2)').classList.toggle('ext-active', !isAtivo);
         }
         saveState();
+    }
+
+    function atualizarBadgeDomingos(card, count) {
+        let badge = card.querySelector('.domingos-consecutivos-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'domingos-consecutivos-badge';
+                card.querySelector('.tags-container').appendChild(badge);
+            }
+            badge.innerText = `${count} DOM. SEG.`;
+        } else if (badge) {
+            badge.remove();
+        }
     }
 
     function addShift(sectorId, title = "TURNO A 06:00 AS 14:20", idManual) {
@@ -199,11 +229,12 @@
         if (confirm("Deseja excluir este turno?")) { shiftBox.remove(); saveState(); }
     }
 
-    function criarPessoa(n, idManual, dom = "false", ext = "false") {
+    function criarPessoa(n, idManual, dom = "false", ext = "false", domSeguidos = "0") {
         const id = idManual || 'p-' + Math.random().toString(36).substr(2, 9);
         const card = document.createElement('div');
         card.className = 'card'; card.id = id; card.draggable = true; card.ondragstart = drag;
         card.dataset.domingo = dom; card.dataset.extra = ext;
+        card.dataset.domingosConsecutivos = domSeguidos;
         
         let domCls = dom === "true" ? "dom-active" : "";
         let extCls = ext === "true" ? "ext-active" : "";
@@ -219,6 +250,11 @@
                 <button class="tag-btn ${extCls}" onclick="toggleTag('${id}', 'extra')">EXT</button>
             </div>
         `;
+        
+        if (parseInt(domSeguidos) > 0) {
+            atualizarBadgeDomingos(card, parseInt(domSeguidos));
+        }
+
         return card;
     }
 
@@ -236,7 +272,7 @@
     }
 
     function resetarDias() {
-        if(confirm("Deseja zerar os dias trabalhados e domingos de TODOS os funcionários? Eles continuarão nos turnos atuais, mas a contagem recomeçará do zero.")) {
+        if(confirm("Deseja zerar os dias trabalhados, domingos e contagem de domingos seguidos de TODOS os funcionários?")) {
             document.querySelectorAll('.card').forEach(card => {
                 const sectorId = card.closest('.sector-box').id;
                 
@@ -248,14 +284,15 @@
 
                 card.dataset.domingo = "false";
                 card.dataset.extra = "false";
+                card.dataset.domingosConsecutivos = "0";
                 card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
                 card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
+                atualizarBadgeDomingos(card, 0);
             });
             saveState();
         }
     }
 
-    // SALVAR NA NUVEM
     async function saveState() {
         if (isLoading) return; 
         const state = { sectors: [], people: [] };
@@ -277,19 +314,18 @@
                 lastSector: c.dataset.lastSector, 
                 id: c.id,
                 domingo: c.dataset.domingo,
-                extra: c.dataset.extra
+                extra: c.dataset.extra,
+                domingosConsecutivos: c.dataset.domingosConsecutivos || "0"
             });
         });
 
         try {
             await db.collection("escala_blp").doc("dados_atuais").set(state);
-            console.log("Salvo com sucesso!");
         } catch(e) {
             console.error("Erro ao salvar no Firebase:", e);
         }
     }
 
-    // CARREGAR DA NUVEM
     async function loadState() {
         isLoading = true; 
         document.getElementById('data-amanha').innerText = "CARREGANDO DADOS DA NUVEM...";
@@ -298,9 +334,6 @@
             const doc = await db.collection("escala_blp").doc("dados_atuais").get();
             
             if (!doc.exists) {
-                // Primeira vez abrindo o Firebase vazio - Monta a escala da foto
-                
-                // 1. Criar os turnos fixos
                 addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
                 addShift('sec-maxi', 'TURNO B 14:00 AS 22:20', 'dz-maxi-b');
                 addShift('sec-maxi', 'TURNO C 22:00 AS 06:20', 'dz-maxi-c');
@@ -313,7 +346,6 @@
                 
                 addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
 
-                // 2. Criar a galera já nos lugares certos da foto
                 const galeraFoto = [
                     { n: "MATHEUS", d: "dz-maxi-a" }, { n: "MARTIM", d: "dz-maxi-a" }, { n: "ROBERTO", d: "dz-maxi-a" }, { n: "VINICIUS", d: "dz-maxi-a" },
                     { n: "BRUNO", d: "dz-maxi-b" }, { n: "ANSELMO", d: "dz-maxi-b" }, { n: "CAIO B", d: "dz-maxi-b" }, { n: "FLAVIO", d: "dz-maxi-b" }, { n: "LUCAS SILVEIRA", d: "dz-maxi-b" },
@@ -324,7 +356,6 @@
                     { n: "ALAN", d: "dz-ferias" }
                 ];
                 
-                // 3. Pessoas antigas que não estavam na foto, pra não perder o cadastro
                 const perdidos = ["ADRIAN", "PEDRO", "NATHAN", "RENAN"];
                 perdidos.forEach(p => galeraFoto.push({ n: p, d: "dz-folga" }));
 
@@ -333,7 +364,6 @@
                     const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
                     dest.appendChild(card);
                     
-                    // Configura os tempos e memórias iniciais
                     if (p.d === 'dz-folga' || p.d === 'dz-ferias') {
                         card.dataset.lastSector = p.d === 'dz-ferias' ? 'sec-ferias' : 'sec-folga';
                         card.dataset.cicloStart = "";
@@ -346,7 +376,7 @@
                 });
 
                 isLoading = false;
-                saveState(); // Salva essa estrutura inicial perfeita na nuvem
+                saveState(); 
                 atualizarDataAmanha(); 
                 return;
             }
@@ -359,7 +389,7 @@
             });
             
             state.people.forEach(p => {
-                const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false");
+                const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false", p.domingosConsecutivos || "0");
                 card.dataset.localStart = p.localStart || "";
                 card.dataset.cicloStart = p.cicloStart || "";
                 card.dataset.lastSector = p.lastSector || "sec-folga";
@@ -369,7 +399,6 @@
             
         } catch(e) {
             console.error("Erro ao puxar dados do Firebase:", e);
-            alert("Erro ao conectar no banco de dados. O Firebase está em Modo de Teste?");
         }
         
         isLoading = false;
