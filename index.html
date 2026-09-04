@@ -40,6 +40,12 @@
         /* BADGE DE DOMINGOS SEGUIDOS */
         .domingos-consecutivos-badge { font-size: 9px; background: #e74c3c; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; }
 
+        /* CAMPO DE OBSERVAÇÕES */
+        .obs-container { max-width: 1600px; margin: 10px auto; background: #e0e6ed; border-radius: 6px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        .obs-header { background: #2980b9; color: white; text-align: center; padding: 6px; font-weight: bold; text-transform: uppercase; border-radius: 4px; font-size: 13px; margin-bottom: 8px; }
+        .obs-textarea { width: 100%; height: 70px; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: 'Segoe UI', sans-serif; font-size: 13px; resize: vertical; box-sizing: border-box; outline: none; }
+        .obs-textarea:focus { border-color: #2980b9; }
+
         /* ANIMAÇÃO E CORES DE ALERTA */
         @keyframes pisca { 0% { opacity: 1; } 50% { opacity: 0.3; color: #ff0000; } 100% { opacity: 1; } }
         .alerta-laranja { color: #d35400 !important; font-weight: bold; }
@@ -56,6 +62,7 @@
 
         /* REGRAS PARA A FOTO (O QUE SOME NA EXPORTAÇÃO) */
         .export-mode .admin-panel, 
+        .export-mode .obs-container, 
         .export-mode .btn-del, 
         .export-mode .btn-del-shift, 
         .export-mode .btn-add, 
@@ -96,6 +103,12 @@
         <div class="sector-box" id="sec-sanry"><div class="sector-header" contenteditable="true" onblur="saveState()">SANRY</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-sanry')">+ TURNO</button></div>
         <div class="sector-box" id="sec-almox"><div class="sector-header" contenteditable="true" onblur="saveState()">ESTOQUE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
     </div>
+</div>
+
+<!-- CAMPO DE OBSERVAÇÕES ABAIXO DA ESCALA -->
+<div class="obs-container">
+    <div class="obs-header">OBSERVAÇÕES / RECADOS IMPORTANTES</div>
+    <textarea id="observacoesGerais" class="obs-textarea" placeholder="Digite aqui as observações da escala..." oninput="saveState()"></textarea>
 </div>
 
 <script>
@@ -161,7 +174,6 @@
                     card.dataset.domingo = "true";
                     card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
                     
-                    // Incrementa domingos seguidos se marcou domingo
                     let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
                     card.dataset.domingosConsecutivos = domSeguidos;
                     atualizarBadgeDomingos(card, domSeguidos);
@@ -295,7 +307,7 @@
 
     async function saveState() {
         if (isLoading) return; 
-        const state = { sectors: [], people: [] };
+        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value };
         
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
@@ -382,6 +394,10 @@
             }
 
             const state = doc.data();
+            
+            if (state.observacoes) {
+                document.getElementById('observacoesGerais').value = state.observacoes;
+            }
             
             state.sectors.forEach(s => {
                 if (s.name) { const h = document.querySelector(`#${s.id} .sector-header`); if (h) h.innerText = s.name; }
