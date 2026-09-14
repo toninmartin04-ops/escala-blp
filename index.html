@@ -127,6 +127,7 @@
     const db = firebase.firestore();
 
     let isLoading = false;
+    let ultimaDataVerificada = localStorage.getItem('ultima_data_verificada') || new Date().toDateString();
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -439,6 +440,25 @@
 
     setInterval(() => {
         if (isLoading) return; 
+
+        // Verificação automática de virada de dia para resetar domingos consecutivos de quem folgou/descansou
+        let dataHojeStr = new Date().toDateString();
+        if (dataHojeStr !== ultimaDataVerificada) {
+            document.querySelectorAll('.card').forEach(card => {
+                let trabalhouDomingo = card.dataset.domingo === "true";
+                if (!trabalhouDomingo) {
+                    card.dataset.domingosConsecutivos = "0";
+                    atualizarBadgeDomingos(card, 0);
+                }
+                card.dataset.domingo = "false";
+                let btnDom = card.querySelector('.tag-btn:nth-child(1)');
+                if (btnDom) btnDom.classList.remove('dom-active');
+            });
+            ultimaDataVerificada = dataHojeStr;
+            localStorage.setItem('ultima_data_verificada', ultimaDataVerificada);
+            saveState();
+        }
+
         atualizarDataAmanha(); 
         document.querySelectorAll('.card').forEach(card => {
             const l = card.dataset.localStart; const c = card.dataset.cicloStart;
