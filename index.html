@@ -38,7 +38,8 @@
         .tag-btn.ext-active { background: #27ae60; color: white; border-color: #1e8449; }
         
         /* BADGE DE DOMINGOS SEGUIDOS */
-        .domingos-consecutivos-badge { font-size: 9px; background: #e74c3c; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; }
+        .domingos-consecutivos-badge { font-size: 9px; background: #e74c3c; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; }
+        .domingos-consecutivos-badge:hover { background: #c0392b; opacity: 0.8; }
 
         /* CAMPO DE OBSERVAÇÕES (Ajustado para dentro da coluna) */
         .obs-container { background: #e0e6ed; border-radius: 6px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
@@ -215,6 +216,19 @@
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'domingos-consecutivos-badge';
+                badge.title = "Clique para ajustar/zerar manualmente";
+                badge.onclick = (e) => {
+                    e.stopPropagation();
+                    let valStr = prompt("Ajustar domingos consecutivos (Digite 0 para zerar):", card.dataset.domingosConsecutivos || count);
+                    if (valStr !== null) {
+                        let val = parseInt(valStr);
+                        if (!isNaN(val)) {
+                            card.dataset.domingosConsecutivos = val;
+                            atualizarBadgeDomingos(card, val);
+                            saveState();
+                        }
+                    }
+                };
                 card.querySelector('.tags-container').appendChild(badge);
             }
             badge.innerText = `${count} DOM. SEG.`;
@@ -441,7 +455,6 @@
     setInterval(() => {
         if (isLoading) return; 
 
-        // Verificação automática de virada de dia para resetar domingos consecutivos de quem folgou/descansou
         let dataHojeStr = new Date().toDateString();
         if (dataHojeStr !== ultimaDataVerificada) {
             document.querySelectorAll('.card').forEach(card => {
