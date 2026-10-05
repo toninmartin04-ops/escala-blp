@@ -128,6 +128,7 @@
 
     let isLoading = false;
     let ultimaDataVerificada = localStorage.getItem('ultima_data_verificada') || new Date().toDateString();
+    let ultimoDomingoContado = localStorage.getItem('ultimo_domingo_contado') || "";
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -311,7 +312,7 @@
 
     async function saveState() {
         if (isLoading) return; 
-        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value };
+        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value, ultimoDomingoContado: ultimoDomingoContado };
         
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
@@ -407,6 +408,10 @@
             }
 
             const state = doc.data();
+            if (state.ultimoDomingoContado) {
+                ultimoDomingoContado = state.ultimoDomingoContado;
+                localStorage.setItem('ultimo_domingo_contado', ultimoDomingoContado);
+            }
             
             if (state.observacoes) {
                 document.getElementById('observacoesGerais').value = state.observacoes;
@@ -458,8 +463,14 @@
     }
 
     async function resetGeral() { 
+        const senha = prompt("Digite a senha para ZERAR TUDO:");
+        if (senha !== "99495370") {
+            if (senha !== null) alert("Senha incorreta!");
+            return;
+        }
         if(confirm("ATENÇÃO: Deseja apagar toda a escala do servidor para todos os usuários?")) { 
             await db.collection("escala_blp").doc("dados_atuais").delete();
+            localStorage.removeItem('ultimo_domingo_contado');
             location.reload(); 
         } 
     }
@@ -471,37 +482,46 @@
         document.getElementById('data-amanha').innerText = `${dias[amanha.getDay()]} ${String(amanha.getDate()).padStart(2, '0')}/${String(amanha.getMonth() + 1).padStart(2, '0')}/${amanha.getFullYear()}`;
     }
 
-    // VERIFICAÇÃO AUTOMÁTICA DOS DOMINGOS ÀS 11:00 DA MANHÃ
+    // VERIFICAÇÃO AUTOMÁTICA DOS DOMINGOS (CORRIGIDA)
     setInterval(() => {
         if (isLoading) return; 
 
         const agora = new Date();
-        const diaSemana = agora.getDay(); // 0 = Domingo
-        const hora = agora.getHours();
-        const minuto = agora.getMinutes();
 
-        // Regra exata: Se for Domingo exatamente às 11:00 da manhã
-        if (diaSemana === 0 && hora === 11 && minuto === 0) {
-            let chaveVerificacaoDomingo = 'domingo_computado_' + agora.toDateString();
-            if (!localStorage.getItem(chaveVerificacaoDomingo)) {
-                document.querySelectorAll('.card').forEach(card => {
-                    const sectorId = card.closest('.sector-box').id;
-                    const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-ferias';
-                    
-                    if (!isDescanso) {
-                        if (card.dataset.domingo !== "true") {
-                            card.dataset.domingo = "true";
-                            card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
-                            
-                            let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
-                            card.dataset.domingosConsecutivos = domSeguidos;
-                            atualizarBadgeDomingos(card, domSeguidos);
-                        }
-                    }
-                });
-                localStorage.setItem(chaveVerificacaoDomingo, 'true');
-                saveState();
-            }
+        // Descobre qual foi o domingo dessa contagem (mesmo se abrir na segunda)
+        const domingoRef = new Date(agora);
+        domingoRef.setHours(0,0,0,0);
+        domingoRef.setDate(agora.getDate() - agora.getDay());
+        const chaveDomingo = domingoRef.toDateString();
+
+        const passouDas11DeDomingo = (agora.getDay() === 0 && agora.getHours() >= 11) || (agora.getDay() > 0);
+
+        if (passouDas11DeDomingo && ultimoDomingoContado !== chaveDomingo) {
+            document.querySelectorAll('.card').forEach(card => {
+                const sectorBox = card.closest('.sector-box');
+                if (!sectorBox) return;
+                const sectorId = sectorBox.id;
+                const sectorTitle = sectorBox.querySelector('.sector-header').innerText.toUpperCase();
+                const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-ferias' ||
+                    ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => sectorTitle.includes(p));
+                
+                if (!isDescanso) {
+                    // Trabalhando no domingo: marca DOM e soma +1 (uma vez por domingo)
+                    card.dataset.domingo = "true";
+                    const btnDom = card.querySelector('.tag-btn:nth-child(1)');
+                    if (btnDom) btnDom.classList.add('dom-active');
+                    let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
+                    card.dataset.domingosConsecutivos = domSeguidos;
+                    atualizarBadgeDomingos(card, domSeguidos);
+                } else {
+                    // Folgou no domingo: zera sequência
+                    card.dataset.domingosConsecutivos = "0";
+                    atualizarBadgeDomingos(card, 0);
+                }
+            });
+            ultimoDomingoContado = chaveDomingo;
+            localStorage.setItem('ultimo_domingo_contado', chaveDomingo);
+            saveState();
         }
 
         let dataHojeStr = agora.toDateString();
