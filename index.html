@@ -41,7 +41,7 @@
         .domingos-consecutivos-badge { font-size: 9px; background: #e74c3c; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; }
         .domingos-consecutivos-badge:hover { background: #c0392b; opacity: 0.8; }
 
-        /* CAMPO DE OBSERVAÇÕES (Ajustado para dentro da coluna) */
+        /* CAMPO DE OBSERVAÇÕES */
         .obs-container { background: #e0e6ed; border-radius: 6px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .obs-header { background: #2980b9; color: white; text-align: center; padding: 6px; font-weight: bold; text-transform: uppercase; border-radius: 4px; font-size: 13px; margin-bottom: 8px; }
         .obs-textarea { width: 100%; height: 90px; border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-family: 'Segoe UI', sans-serif; font-size: 13px; resize: vertical; box-sizing: border-box; outline: none; }
@@ -101,7 +101,6 @@
         <div class="sector-box" id="sec-folga"><div class="sector-header" contenteditable="true" onblur="saveState()">FOLGAS / ATESTADO</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
         <div class="sector-box" id="sec-ferias"><div class="sector-header" contenteditable="true" onblur="saveState()" style="background:#27ae60; color:#fff">FÉRIAS</div><div class="drop-zone ferias-box" id="dz-ferias" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
         
-        <!-- CAMPO DE OBSERVAÇÕES AGORA ESTÁ AQUI NO MEIO -->
         <div class="obs-container">
             <div class="obs-header">OBSERVAÇÕES / RECADOS IMPORTANTES</div>
             <textarea id="observacoesGerais" class="obs-textarea" placeholder="Digite aqui as observações da escala..." oninput="saveState()"></textarea>
@@ -170,18 +169,6 @@
                 if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
-
-                const dataEscala = new Date();
-                dataEscala.setDate(dataEscala.getDate() + 1);
-                
-                if (dataEscala.getDay() === 0) {
-                    card.dataset.domingo = "true";
-                    card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
-                    
-                    let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
-                    card.dataset.domingosConsecutivos = domSeguidos;
-                    atualizarBadgeDomingos(card, domSeguidos);
-                }
             }
             saveState();
         }
@@ -452,20 +439,48 @@
         document.getElementById('data-amanha').innerText = `${dias[amanha.getDay()]} ${String(amanha.getDate()).padStart(2, '0')}/${String(amanha.getMonth() + 1).padStart(2, '0')}/${amanha.getFullYear()}`;
     }
 
+    // VERIFICAÇÃO AUTOMÁTICA DOS DOMINGOS ÀS 11:00 DA MANHÃ
     setInterval(() => {
         if (isLoading) return; 
 
-        let dataHojeStr = new Date().toDateString();
+        const agora = new Date();
+        const diaSemana = agora.getDay(); // 0 = Domingo
+        const hora = agora.getHours();
+        const minuto = agora.getMinutes();
+
+        // Regra exata: Se for Domingo exatamente às 11:00 da manhã
+        if (diaSemana === 0 && hora === 11 && minuto === 0) {
+            let chaveVerificacaoDomingo = 'domingo_computado_' + agora.toDateString();
+            if (!localStorage.getItem(chaveVerificacaoDomingo)) {
+                document.querySelectorAll('.card').forEach(card => {
+                    const sectorId = card.closest('.sector-box').id;
+                    const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-ferias';
+                    
+                    // Se estiver escalado (não estiver de folga/férias às 11h de domingo)
+                    if (!isDescanso) {
+                        if (card.dataset.domingo !== "true") {
+                            card.dataset.domingo = "true";
+                            card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
+                            
+                            let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
+                            card.dataset.domingosConsecutivos = domSeguidos;
+                            atualizarBadgeDomingos(card, domSeguidos);
+                        }
+                    }
+                });
+                localStorage.setItem(chaveVerificacaoDomingo, 'true');
+                saveState();
+            }
+        }
+
+        let dataHojeStr = agora.toDateString();
         if (dataHojeStr !== ultimaDataVerificada) {
+            // Na virada do dia, reseta a tag de domingo diária se não for domingo, mas mantém o acumulado
             document.querySelectorAll('.card').forEach(card => {
                 let trabalhouDomingo = card.dataset.domingo === "true";
-                if (!trabalhouDomingo) {
-                    card.dataset.domingosConsecutivos = "0";
-                    atualizarBadgeDomingos(card, 0);
+                if (agora.getDay() !== 0 && !trabalhouDomingo) {
+                    // Mantém a lógica de limpeza rotineira se necessário
                 }
-                card.dataset.domingo = "false";
-                let btnDom = card.querySelector('.tag-btn:nth-child(1)');
-                if (btnDom) btnDom.classList.remove('dom-active');
             });
             ultimaDataVerificada = dataHojeStr;
             localStorage.setItem('ultima_data_verificada', ultimaDataVerificada);
