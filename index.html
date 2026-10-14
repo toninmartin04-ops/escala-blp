@@ -58,8 +58,8 @@
         .ferias-box { background: #d5f5e3 !important; min-height: 100px; border: 2px dashed #2ecc71; }
         .blp-container { margin-bottom: 20px; display: flex; flex-direction: column; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
         .blp-date { background-color: #f58220; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px; text-transform: uppercase; }
-        .blp-logo-box { background-color: white; border: 3px solid #3b6fb6; padding: 10px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 160px; }
-        .blp-logo-box img { max-width: 100%; max-height: 150px; object-fit: contain; }
+        .blp-logo-box { background-color: white; border: none; padding: 0; display: block; min-height: 160px; overflow: hidden; }
+        .blp-logo-box img { width: 100%; height: 180px; object-fit: fill; display: block; max-width: none; max-height: none; }
 
         /* REGRAS PARA A FOTO (O QUE SOME NA EXPORTAÇÃO) */
         .export-mode .admin-panel, 
@@ -592,6 +592,27 @@
     }, 1000);
 
     function exportarLimpo() {
+        // AVISO 4º DOMINGO: quem tem 3+ e continua na escala
+        const emRisco = [];
+        document.querySelectorAll('.card').forEach(card => {
+            const n = parseInt(card.dataset.domingosConsecutivos || "0");
+            if (n >= 3) {
+                const box = card.closest('.sector-box');
+                if (!box) return;
+                const sid = box.id;
+                const title = box.querySelector('.sector-header').innerText.toUpperCase();
+                const isDescanso = sid === 'sec-folga' || sid === 'sec-ferias' ||
+                    ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => title.includes(p));
+                if (!isDescanso) {
+                    const nome = card.querySelector('.name').innerText;
+                    emRisco.push(`• ${nome} está com ${n} domingos - esse será o ${n+1}º`);
+                }
+            }
+        });
+        if (emRisco.length > 0) {
+            const msg = `ATENÇÃO - 4º DOMINGO:\n\n${emRisco.join('\n')}\n\nProsseguir mesmo assim e salvar a foto?\nOK = Salvar foto / Cancelar = Voltar para alterar`;
+            if (!confirm(msg)) return;
+        }
         document.body.classList.add('export-mode'); 
         setTimeout(() => {
             html2canvas(document.getElementById('painel'), { scale: 2 }).then(canvas => {
