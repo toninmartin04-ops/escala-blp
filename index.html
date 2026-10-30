@@ -110,6 +110,7 @@
     <div class="sector-container">
         <div class="sector-box" id="sec-sanry"><div class="sector-header" contenteditable="true" onblur="saveState()">SANRY</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-sanry')">+ TURNO</button></div>
         <div class="sector-box" id="sec-almox"><div class="sector-header" contenteditable="true" onblur="saveState()">ESTOQUE</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-almox')">+ TURNO</button></div>
+        <div class="sector-box" id="sec-local"><div class="sector-header" contenteditable="true" onblur="saveState()">LOCAL DE TRABALHO</div><div class="shift-container"></div><button class="btn-add" style="margin:5px; font-size:10px;" onclick="addShift('sec-local')">+ TURNO</button></div>
     </div>
 </div>
 
@@ -364,6 +365,8 @@
                     addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
                     
                     addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
+                    
+                    addShift('sec-local', 'TURNO A 06:00 AS 14:20', 'dz-local-a');
                 }
 
                 const galeraFoto = [
@@ -435,6 +438,7 @@
                 addShift('sec-sanry', 'TURNO B 14:00 AS 22:20', 'dz-sanry-b');
                 addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
                 addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
+                addShift('sec-local', 'TURNO A 06:00 AS 14:20', 'dz-local-a');
             }
             
             if (state.people && state.people.length > 0) {
