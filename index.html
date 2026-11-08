@@ -90,6 +90,23 @@
         .relatorio-actions .btn-csv { background: #e67e22; }
         .relatorio-actions .btn-csv:hover { background: #f39c12; }
 
+        /* SELETOR DE MÊS/ANO */
+        .sel-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; display: none; align-items: center; justify-content: center; }
+        .sel-box { background: white; border-radius: 12px; padding: 30px; text-align: center; min-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .sel-box h3 { margin: 0 0 20px 0; color: #2c3e50; font-size: 20px; }
+        .sel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+        .sel-mes-btn { background: #ecf0f1; border: 2px solid #ddd; border-radius: 8px; padding: 12px 8px; font-size: 13px; font-weight: bold; cursor: pointer; color: #2c3e50; transition: all 0.15s; }
+        .sel-mes-btn:hover { background: #3498db; color: white; border-color: #2980b9; transform: scale(1.05); }
+        .sel-mes-btn.atual { background: #2ecc71; color: white; border-color: #27ae60; }
+        .sel-ano-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .sel-ano-btn { background: #bdc3c7; border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .sel-ano-btn:hover { background: #95a5a6; }
+        .sel-ano-val { font-size: 22px; font-weight: bold; color: #2c3e50; min-width: 70px; }
+        .sel-confirm { background: #27ae60; color: white; border: none; padding: 12px 40px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .sel-confirm:hover { background: #2ecc71; }
+        .sel-cancel { background: #ecf0f1; color: #7f8c8d; border: none; padding: 12px 30px; border-radius: 6px; font-size: 14px; cursor: pointer; margin-left: 10px; }
+        .sel-cancel:hover { background: #bdc3c7; }
+
         .btn-add { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; font-weight: bold; }
         .folga-box { min-height: 100px; }
         .ferias-box { background: #d5f5e3 !important; min-height: 100px; border: 2px dashed #2ecc71; }
@@ -124,6 +141,23 @@
     <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
     <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
     <button style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarRelatorioMensal()">📊 RELATÓRIO MENSAL</button>
+</div>
+
+<!-- MODAL SELETOR DE MÊS/ANO -->
+<div class="sel-overlay" id="selOverlay">
+    <div class="sel-box">
+        <h3>📊 Selecionar Período</h3>
+        <div class="sel-ano-row">
+            <button class="sel-ano-btn" onclick="mudarAno(-1)">−</button>
+            <span class="sel-ano-val" id="selAno">2026</span>
+            <button class="sel-ano-btn" onclick="mudarAno(1)">+</button>
+        </div>
+        <div class="sel-grid" id="selGrid"></div>
+        <div>
+            <button class="sel-confirm" onclick="confirmarPeriodo()">GERAR RELATÓRIO</button>
+            <button class="sel-cancel" onclick="fecharSelecao()">CANCELAR</button>
+        </div>
+    </div>
 </div>
 
 <!-- MODAL RELATÓRIO MENSAL -->
@@ -721,9 +755,9 @@
         const ano = overlay.dataset.ano || '';
         const pessoas = JSON.parse(overlay.dataset.pessoas || '[]');
         
-        let csv = 'Nome,Total Folgas,Total Trabalho,Domingos Trabalhados,Férias\n';
+        let csv = 'Nome;Total Folgas;Total Trabalho;Domingos Trabalhados;Férias\n';
         pessoas.forEach(p => {
-            csv += `${p.nome},${p.folgas},${p.trabalho},${p.domingos},${p.ferias}\n`;
+            csv += `${p.nome};${p.folgas};${p.trabalho};${p.domingos};${p.ferias}\n`;
         });
         
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -735,15 +769,49 @@
 
     function exportarRelatorioMensal() {
         const hoje = new Date();
-        const mesInput = prompt(`Digite o mês do relatório (1-12):\n(1=Janeiro, 10=Outubro, etc.)`, hoje.getMonth() + 1);
-        if (mesInput === null) return;
-        const mes = parseInt(mesInput);
-        if (isNaN(mes) || mes < 1 || mes > 12) { alert('Mês inválido!'); return; }
+        selAnoAtual = hoje.getFullYear();
+        selMesAtual = hoje.getMonth() + 1;
+        document.getElementById('selAno').textContent = selAnoAtual;
+        renderizarSelecao();
+        document.getElementById('selOverlay').style.display = 'flex';
+    }
 
-        const anoInput = prompt(`Digite o ano do relatório:`, hoje.getFullYear());
-        if (anoInput === null) return;
-        const ano = parseInt(anoInput);
-        if (isNaN(ano)) { alert('Ano inválido!'); return; }
+    let selAnoAtual = 2026;
+    let selMesAtual = 11;
+
+    function mudarAno(delta) {
+        selAnoAtual += delta;
+        document.getElementById('selAno').textContent = selAnoAtual;
+        renderizarSelecao();
+    }
+
+    function renderizarSelecao() {
+        const grid = document.getElementById('selGrid');
+        const nomesMeses = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+        const hoje = new Date();
+        let html = '';
+        for (let m = 1; m <= 12; m++) {
+            const ehAtual = (m === hoje.getMonth() + 1 && selAnoAtual === hoje.getFullYear());
+            const ativo = (m === selMesAtual);
+            let cls = 'sel-mes-btn';
+            if (ehAtual) cls += ' atual';
+            if (ativo && !ehAtual) cls += ' ' ;
+            if (ativo) cls = 'sel-mes-btn atual';
+            html += `<button class="${cls}" data-mes="${m}" onclick="selMesAtual=${m};renderizarSelecao()">${nomesMeses[m-1]}</button>`;
+        }
+        grid.innerHTML = html;
+    }
+
+    function fecharSelecao() {
+        document.getElementById('selOverlay').style.display = 'none';
+    }
+
+    function confirmarPeriodo() {
+        document.getElementById('selOverlay').style.display = 'none';
+        gerarRelatorio(selMesAtual, selAnoAtual);
+    }
+
+    function gerarRelatorio(mes, ano) {
 
         const nomesMeses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
         const diasSemana = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
