@@ -53,6 +53,43 @@
         .alerta-vermelho { color: #c0392b !important; font-weight: bold; }
         .alerta-pisca { color: #c0392b !important; font-weight: bold; animation: pisca 1s infinite; }
 
+        /* AVISO FOLGA CONSECUTIVA */
+        .folga-consecutiva-badge { font-size: 9px; background: #e67e22; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; animation: pisca 1s infinite; }
+        .folga-consecutiva-badge:hover { background: #d35400; }
+
+        /* RELATÓRIO MENSAL */
+        .relatorio-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; overflow-y: auto; display: none; }
+        .relatorio-content { background: white; margin: 20px auto; padding: 20px; border-radius: 8px; max-width: 1200px; width: 95%; }
+        .relatorio-header { background: #2c3e50; color: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: center; }
+        .relatorio-header h2 { margin: 0 0 5px 0; }
+        .relatorio-header p { margin: 0; font-size: 14px; opacity: 0.8; }
+        .relatorio-close { position: absolute; top: 15px; right: 20px; background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .relatorio-close:hover { background: #c0392b; }
+        .pessoa-relatorio { background: #ecf0f1; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+        .pessoa-nome { font-weight: bold; font-size: 15px; color: #2c3e50; margin-bottom: 8px; text-transform: uppercase; }
+        .pessoa-stats { display: flex; gap: 15px; margin-bottom: 8px; flex-wrap: wrap; }
+        .stat-box { background: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #ddd; }
+        .stat-box strong { font-size: 16px; color: #2c3e50; }
+        .stat-folga { border-left: 4px solid #e74c3c; }
+        .stat-trabalho { border-left: 4px solid #27ae60; }
+        .stat-domingo { border-left: 4px solid #f39c12; }
+        .stat-ferias { border-left: 4px solid #3498db; }
+        .calendario-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
+        .cal-dia-label { font-size: 9px; font-weight: bold; text-align: center; color: #7f8c8d; padding: 3px; background: #bdc3c7; border-radius: 3px; }
+        .cal-dia { font-size: 11px; text-align: center; padding: 5px 3px; border-radius: 3px; min-height: 28px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .cal-trabalho { background: #27ae60; color: white; }
+        .cal-folga { background: #e74c3c; color: white; }
+        .cal-ferias { background: #3498db; color: white; }
+        .cal-vazio { background: #ecf0f1; color: #bdc3c7; }
+        .cal-domingo { border: 2px solid #f39c12; }
+        .relatorio-actions { text-align: center; margin-top: 15px; }
+        .relatorio-actions button { background: #2980b9; color: white; border: none; padding: 10px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; margin: 0 5px; }
+        .relatorio-actions button:hover { background: #3498db; }
+        .relatorio-actions .btn-print { background: #27ae60; }
+        .relatorio-actions .btn-print:hover { background: #2ecc71; }
+        .relatorio-actions .btn-csv { background: #e67e22; }
+        .relatorio-actions .btn-csv:hover { background: #f39c12; }
+
         .btn-add { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; font-weight: bold; }
         .folga-box { min-height: 100px; }
         .ferias-box { background: #d5f5e3 !important; min-height: 100px; border: 2px dashed #2ecc71; }
@@ -85,6 +122,25 @@
     
     <button style="background:#f39c12; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-left: auto;" onclick="resetarDias()">🔄 ZERAR DIAS</button>
     <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
+    <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
+    <button style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarRelatorioMensal()">📊 RELATÓRIO MENSAL</button>
+</div>
+
+<!-- MODAL RELATÓRIO MENSAL -->
+<div class="relatorio-overlay" id="relatorioOverlay">
+    <div class="relatorio-content" id="relatorioContent">
+        <button class="relatorio-close" onclick="fecharRelatorio()">✕ FECHAR</button>
+        <div class="relatorio-header">
+            <h2 id="relatorioTitulo">RELATÓRIO MENSAL</h2>
+            <p id="relatorioSubtitulo"></p>
+        </div>
+        <div id="relatorioPessoas"></div>
+        <div class="relatorio-actions">
+            <button class="btn-print" onclick="imprimirRelatorio()">🖨️ IMPRIMIR / PDF</button>
+            <button class="btn-csv" onclick="exportarCSV()">📥 EXPORTAR CSV</button>
+            <button onclick="fecharRelatorio()">FECHAR</button>
+        </div>
+    </div>
 </div>
 
 <div class="main-container" id="painel">
@@ -130,6 +186,7 @@
     let isLoading = false;
     let ultimaDataVerificada = localStorage.getItem('ultima_data_verificada') || new Date().toDateString();
     let ultimoDomingoContado = localStorage.getItem('ultimo_domingo_contado') || "";
+    let historicoMovimentos = JSON.parse(localStorage.getItem('historico_movimentos') || '[]');
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -172,6 +229,14 @@
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
             }
+
+            // REGISTRAR NO HISTÓRICO
+            const hoje = new Date().toISOString().slice(0,10);
+            const nome = card.querySelector('.name').innerText;
+            let acao = isDescanso ? 'folga' : 'trabalho';
+            if (novoSetorId === 'sec-ferias' || (sectorTitle && sectorTitle.includes('FÉRIA'))) acao = 'ferias';
+            historicoMovimentos.push({ data: hoje, pessoa: nome, acao: acao, setor: novoSetorId, turno: shiftTitle || '', hora: new Date().toTimeString().slice(0,5) });
+
             saveState();
         }
     }
@@ -313,7 +378,7 @@
 
     async function saveState() {
         if (isLoading) return; 
-        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value, ultimoDomingoContado: ultimoDomingoContado };
+        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value, ultimoDomingoContado: ultimoDomingoContado, historico: historicoMovimentos };
         
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
@@ -338,6 +403,7 @@
         });
 
         try {
+            localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
             await db.collection("escala_blp").doc("dados_atuais").set(state);
         } catch(e) {
             console.error("Erro ao salvar no Firebase:", e);
@@ -411,6 +477,10 @@
             }
 
             const state = doc.data();
+            if (state.historico && state.historico.length > 0) {
+                historicoMovimentos = state.historico;
+                localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
+            }
             if (state.ultimoDomingoContado) {
                 ultimoDomingoContado = state.ultimoDomingoContado;
                 localStorage.setItem('ultimo_domingo_contado', ultimoDomingoContado);
@@ -566,7 +636,15 @@
                 } else { tL.innerText = "S/ REGISTRO"; }
 
                 if (isDescanso) {
-                    tC.innerHTML = "DESCANSANDO";
+                    // VERIFICA FOLGA CONSECUTIVA (2+ dias)
+                    let avisoFolga = "";
+                    if (l && l !== "undefined" && l !== "") {
+                        const diasFolga = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                        if (diasFolga >= 1) {
+                            avisoFolga = `<span class="folga-consecutiva-badge" title="Clique para ajustar">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
+                        }
+                    }
+                    tC.innerHTML = avisoFolga + "DESCANSANDO";
                     tC.className = "timer-ciclo";
                 } else {
                     if (c && c !== "undefined" && c !== "") {
@@ -629,6 +707,167 @@
         }, 100);
     }
     
+    function fecharRelatorio() {
+        document.getElementById('relatorioOverlay').style.display = 'none';
+    }
+
+    function imprimirRelatorio() {
+        window.print();
+    }
+
+    function exportarCSV() {
+        const overlay = document.getElementById('relatorioOverlay');
+        const mes = overlay.dataset.mes || '';
+        const ano = overlay.dataset.ano || '';
+        const pessoas = JSON.parse(overlay.dataset.pessoas || '[]');
+        
+        let csv = 'Nome,Total Folgas,Total Trabalho,Domingos Trabalhados,Férias\n';
+        pessoas.forEach(p => {
+            csv += `${p.nome},${p.folgas},${p.trabalho},${p.domingos},${p.ferias}\n`;
+        });
+        
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Relatorio_${mes}_${ano}.csv`;
+        link.click();
+    }
+
+    function exportarRelatorioMensal() {
+        const hoje = new Date();
+        const mesInput = prompt(`Digite o mês do relatório (1-12):\n(1=Janeiro, 10=Outubro, etc.)`, hoje.getMonth() + 1);
+        if (mesInput === null) return;
+        const mes = parseInt(mesInput);
+        if (isNaN(mes) || mes < 1 || mes > 12) { alert('Mês inválido!'); return; }
+
+        const anoInput = prompt(`Digite o ano do relatório:`, hoje.getFullYear());
+        if (anoInput === null) return;
+        const ano = parseInt(anoInput);
+        if (isNaN(ano)) { alert('Ano inválido!'); return; }
+
+        const nomesMeses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+        const diasSemana = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+        const diasNoMes = new Date(ano, mes, 0).getDate();
+        const primeiroDia = new Date(ano, mes - 1, 1).getDay();
+
+        // Filtrar histórico do mês
+        const prefixoMes = `${ano}-${String(mes).padStart(2,'0')}`;
+        const historicoMes = historicoMovimentos.filter(h => h.data.startsWith(prefixoMes));
+
+        // Agrupar por pessoa
+        const mapaPessoas = {};
+        historicoMes.forEach(h => {
+            if (!mapaPessoas[h.pessoa]) mapaPessoas[h.pessoa] = [];
+            mapaPessoas[h.pessoa].push(h);
+        });
+
+        // Também incluir pessoas que estão na escala mas sem movimento no mês
+        document.querySelectorAll('.card .name').forEach(el => {
+            const nome = el.innerText;
+            if (!mapaPessoas[nome]) mapaPessoas[nome] = [];
+        });
+
+        const nomes = Object.keys(mapaPessoas).sort();
+        const overlay = document.getElementById('relatorioOverlay');
+        const content = document.getElementById('relatorioPessoas');
+        const titulo = document.getElementById('relatorioTitulo');
+        const subtitulo = document.getElementById('relatorioSubtitulo');
+
+        titulo.textContent = `RELATÓRIO DE ${nomesMeses[mes-1]} ${ano}`;
+        subtitulo.textContent = `Período: 01/${String(mes).padStart(2,'0')}/${ano} a ${String(diasNoMes).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+
+        let html = '';
+
+        nomes.forEach(nome => {
+            const movimentos = mapaPessoas[nome];
+            
+            // Calcular status de cada dia do mês
+            const statusDias = {};
+            let folgas = 0, trabalho = 0, domingos = 0, ferias = 0;
+
+            // Estado inicial: sem registro
+            for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
+
+            // Processar movimentos ordenados por data
+            movimentos.sort((a, b) => a.data.localeCompare(b.data));
+            let statusAtual = 'vazio';
+            movimentos.forEach(m => {
+                const dia = parseInt(m.data.split('-')[2]);
+                if (m.acao === 'folga' || m.acao === 'ferias') {
+                    statusAtual = m.acao;
+                } else if (m.acao === 'trabalho') {
+                    statusAtual = 'trabalho';
+                }
+                for (let d = dia; d <= diasNoMes; d++) {
+                    statusDias[d] = statusAtual;
+                }
+            });
+
+            // Contar
+            for (let d = 1; d <= diasNoMes; d++) {
+                const diaSemana = new Date(ano, mes - 1, d).getDay();
+                if (statusDias[d] === 'folga') folgas++;
+                else if (statusDias[d] === 'trabalho') {
+                    trabalho++;
+                    if (diaSemana === 0) domingos++;
+                }
+                else if (statusDias[d] === 'ferias') ferias++;
+            }
+
+            // Calendário HTML
+            let calHtml = '<div class="calendario-grid">';
+            for (let i = 0; i < 7; i++) calHtml += `<div class="cal-dia-label">${diasSemana[i]}</div>`;
+            for (let i = 0; i < primeiroDia; i++) calHtml += '<div class="cal-dia cal-vazio"></div>';
+            for (let d = 1; d <= diasNoMes; d++) {
+                const diaSemana = new Date(ano, mes - 1, d).getDay();
+                const cls = statusDias[d] === 'trabalho' ? 'cal-trabalho' :
+                            statusDias[d] === 'folga' ? 'cal-folga' :
+                            statusDias[d] === 'ferias' ? 'cal-ferias' : 'cal-vazio';
+                const domCls = diaSemana === 0 ? ' cal-domingo' : '';
+                calHtml += `<div class="cal-dia ${cls}${domCls}" title="${String(d).padStart(2,'0')}/${String(mes).padStart(2,'0')} - ${statusDias[d]}">${d}</div>`;
+            }
+            calHtml += '</div>';
+
+            html += `
+                <div class="pessoa-relatorio">
+                    <div class="pessoa-nome">${nome}</div>
+                    <div class="pessoa-stats">
+                        <div class="stat-box stat-folga">Folgas: <strong>${folgas}</strong></div>
+                        <div class="stat-box stat-trabalho">Trabalho: <strong>${trabalho}</strong></div>
+                        <div class="stat-box stat-domingo">Domingos: <strong>${domingos}</strong></div>
+                        <div class="stat-box stat-ferias">Férias: <strong>${ferias}</strong></div>
+                    </div>
+                    ${calHtml}
+                </div>`;
+        });
+
+        content.innerHTML = html;
+        overlay.dataset.mes = nomesMeses[mes-1];
+        overlay.dataset.ano = ano;
+        overlay.dataset.pessoas = JSON.stringify(nomes.map(n => {
+            const movimentos = mapaPessoas[n];
+            const statusDias = {};
+            for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
+            movimentos.sort((a, b) => a.data.localeCompare(b.data));
+            let statusAtual = 'vazio';
+            movimentos.forEach(m => {
+                const dia = parseInt(m.data.split('-')[2]);
+                if (m.acao === 'folga' || m.acao === 'ferias') statusAtual = m.acao;
+                else if (m.acao === 'trabalho') statusAtual = 'trabalho';
+                for (let d = dia; d <= diasNoMes; d++) statusDias[d] = statusAtual;
+            });
+            let folgas=0, trabalho=0, domingos=0, ferias=0;
+            for (let d = 1; d <= diasNoMes; d++) {
+                const ds = new Date(ano, mes-1, d).getDay();
+                if (statusDias[d]==='folga') folgas++;
+                else if (statusDias[d]==='trabalho') { trabalho++; if(ds===0) domingos++; }
+                else if (statusDias[d]==='ferias') ferias++;
+            }
+            return { nome: n, folgas, trabalho, domingos, ferias };
+        }));
+        overlay.style.display = 'block';
+    }
+
     window.onload = () => { loadState(); };
 </script>
 </body>
