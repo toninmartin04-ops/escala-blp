@@ -255,11 +255,15 @@
                 card.dataset.cicloStart = ""; 
                 card.dataset.domingo = "false";
                 card.dataset.extra = "false";
+                card.dataset.domingosConsecutivos = "0";
                 card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
                 card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
+                atualizarBadgeDomingos(card, 0);
 
                 if (novoSetorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA')) {
                     if (setorAntigo !== 'sec-ferias') card.dataset.localStart = Date.now();
+                } else if (novoSetorId === 'sec-folga' || novoSetorId === 'sec-atestado') {
+                    if (setorAntigo !== 'sec-folga' && setorAntigo !== 'sec-atestado') card.dataset.localStart = Date.now();
                 }
                 card.dataset.lastSector = novoSetorId;
             } else {
@@ -631,11 +635,12 @@
         }
 
         let dataHojeStr = agora.toDateString();
-        if (dataHojeStr !== ultimaDataVerificada) {
+        const eh2359 = (agora.getHours() === 23 && agora.getMinutes() === 59);
+        if (eh2359 && ultimaDataVerificada !== dataHojeStr) {
             ultimaDataVerificada = dataHojeStr;
             localStorage.setItem('ultima_data_verificada', dataHojeStr);
             
-            // REGISTRAR HISTÓRICO À MEIA-NOITE pra quem está em folga/atestado/férias
+            // REGISTRAR HISTÓRICO ÀS 23:59 pra quem está em folga/atestado/férias/trabalho
             const hojeISO = new Date().toISOString().slice(0,10);
             document.querySelectorAll('.card').forEach(card => {
                 const sectorBox = card.closest('.sector-box');
@@ -650,7 +655,13 @@
                 
                 const ultimoRegistro = historicoMovimentos.filter(h => h.pessoa === nome).pop();
                 if (!ultimoRegistro || ultimoRegistro.data !== hojeISO || ultimoRegistro.acao !== acao) {
-                    historicoMovimentos.push({ data: hojeISO, pessoa: nome, acao: acao, setor: sectorId, turno: '', hora: '00:00' });
+                    historicoMovimentos.push({ data: hojeISO, pessoa: nome, acao: acao, setor: sectorId, turno: '', hora: '23:59' });
+                }
+                
+                // ZERAR DOMINGOS ÀS 23:59 para quem está em descanso
+                if (sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias') {
+                    card.dataset.domingosConsecutivos = "0";
+                    atualizarBadgeDomingos(card, 0);
                 }
             });
             saveState();
