@@ -57,6 +57,10 @@
         .folga-consecutiva-badge { font-size: 9px; background: #e67e22; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; animation: pisca 1s infinite; }
         .folga-consecutiva-badge:hover { background: #d35400; }
 
+        /* ATESTADO - sem apitação, só informativo */
+        .atestado-badge { font-size: 9px; background: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; }
+        .atestado-badge:hover { background: #e74c3c; }
+
         /* RELATÓRIO MENSAL */
         .relatorio-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; overflow-y: auto; display: none; }
         .relatorio-content { background: white; margin: 20px auto; padding: 20px; border-radius: 8px; max-width: 1200px; width: 95%; }
@@ -671,16 +675,29 @@
                 } else { tL.innerText = "S/ REGISTRO"; }
 
                 if (isDescanso) {
-                    // VERIFICA FOLGA CONSECUTIVA (2+ dias)
-                    let avisoFolga = "";
-                    if (l && l !== "undefined" && l !== "") {
-                        const diasFolga = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                        if (diasFolga >= 1) {
-                            avisoFolga = `<span class="folga-consecutiva-badge" title="Clique para ajustar">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
+                    // ATESTADO: mostra dias mas NÃO apita (diferente de folga)
+                    if (sectorId === 'sec-atestado') {
+                        let infoAtestado = "";
+                        if (l && l !== "undefined" && l !== "") {
+                            const diasAt = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                            infoAtestado = `<span class="atestado-badge">${diasAt} DIA(S) DE ATESTADO</span><br>`;
+                        } else {
+                            infoAtestado = `<span class="atestado-badge">ATESTADO: hoje</span><br>`;
                         }
+                        tC.innerHTML = infoAtestado + "DESCANSANDO";
+                        tC.className = "timer-ciclo";
+                    } else {
+                        // FOLGA: apita se 2+ dias seguidos
+                        let avisoFolga = "";
+                        if (l && l !== "undefined" && l !== "") {
+                            const diasFolga = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                            if (diasFolga >= 1) {
+                                avisoFolga = `<span class="folga-consecutiva-badge" title="Clique para ajustar">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
+                            }
+                        }
+                        tC.innerHTML = avisoFolga + "DESCANSANDO";
+                        tC.className = "timer-ciclo";
                     }
-                    tC.innerHTML = avisoFolga + "DESCANSANDO";
-                    tC.className = "timer-ciclo";
                 } else {
                     if (c && c !== "undefined" && c !== "") {
                         const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000) + 1;
