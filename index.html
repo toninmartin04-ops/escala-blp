@@ -188,7 +188,8 @@
             <div id="data-amanha" class="blp-date">CARREGANDO DATA...</div>
             <div class="blp-logo-box"><img src="BLP.png" alt="Logo BLP"></div>
         </div>
-        <div class="sector-box" id="sec-folga"><div class="sector-header" contenteditable="true" onblur="saveState()">FOLGAS / ATESTADO</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
+        <div class="sector-box" id="sec-folga"><div class="sector-header" contenteditable="true" onblur="saveState()">FOLGA</div><div class="drop-zone folga-box" id="dz-folga" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
+        <div class="sector-box" id="sec-atestado"><div class="sector-header" contenteditable="true" onblur="saveState()" style="background:#c0392b; color:#fff">⚕️ ATESTADO</div><div class="drop-zone folga-box" id="dz-atestado" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
         <div class="sector-box" id="sec-ferias"><div class="sector-header" contenteditable="true" onblur="saveState()" style="background:#27ae60; color:#fff">FÉRIAS</div><div class="drop-zone ferias-box" id="dz-ferias" ondrop="drop(event)" ondragover="allowDrop(event)"></div></div>
         
         <div class="obs-container">
@@ -241,7 +242,7 @@
             const sectorTitle = sector ? sector.querySelector('.sector-header').innerText.toUpperCase() : "";
             
             const palavrasZeradoras = ['FOLGA', 'ATESTADO', 'DESCANSO'];
-            const isDescanso = novoSetorId === 'sec-folga' || novoSetorId === 'sec-ferias' || 
+            const isDescanso = novoSetorId === 'sec-folga' || novoSetorId === 'sec-atestado' || novoSetorId === 'sec-ferias' || 
                                palavrasZeradoras.some(p => shiftTitle.includes(p) || sectorTitle.includes(p));
 
             targetZone.appendChild(card);
@@ -258,7 +259,7 @@
                 }
                 card.dataset.lastSector = novoSetorId;
             } else {
-                if (novoSetorId !== setorAntigo && setorAntigo !== 'sec-folga') card.dataset.localStart = Date.now();
+                if (novoSetorId !== setorAntigo && setorAntigo !== 'sec-folga' && setorAntigo !== 'sec-atestado') card.dataset.localStart = Date.now();
                 if (!card.dataset.localStart || card.dataset.localStart === "undefined") card.dataset.localStart = Date.now();
                 if (!card.dataset.cicloStart || card.dataset.cicloStart === "" || card.dataset.cicloStart === "undefined") card.dataset.cicloStart = Date.now();
                 card.dataset.lastSector = novoSetorId;
@@ -393,7 +394,7 @@
             document.querySelectorAll('.card').forEach(card => {
                 const sectorId = card.closest('.sector-box').id;
                 
-                if (sectorId === 'sec-folga' || sectorId === 'sec-ferias') {
+                if (sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias') {
                     card.dataset.cicloStart = "";
                 } else {
                     card.dataset.cicloStart = Date.now();
@@ -610,7 +611,7 @@
                 if (!sectorBox) return;
                 const sectorId = sectorBox.id;
                 const sectorTitle = sectorBox.querySelector('.sector-header').innerText.toUpperCase();
-                const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-ferias' ||
+                const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias' ||
                     ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => sectorTitle.includes(p));
                 
                 if (!isDescanso) {
@@ -652,7 +653,7 @@
             const sectorId = card.closest('.sector-box').id;
 
             const isFerias = sectorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA');
-            const isDescanso = sectorId === 'sec-folga' || isFerias || ['FOLGA', 'ATESTADO', 'DESCANSO'].some(p => shiftTitle.includes(p) || sectorTitle.includes(p));
+            const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-atestado' || isFerias || ['FOLGA', 'ATESTADO', 'DESCANSO'].some(p => shiftTitle.includes(p) || sectorTitle.includes(p));
 
             const trabalhouDomingo = card.dataset.domingo === "true";
             const folgaExtra = card.dataset.extra === "true";
@@ -717,7 +718,7 @@
                 if (!box) return;
                 const sid = box.id;
                 const title = box.querySelector('.sector-header').innerText.toUpperCase();
-                const isDescanso = sid === 'sec-folga' || sid === 'sec-ferias' ||
+                const isDescanso = sid === 'sec-folga' || sid === 'sec-atestado' || sid === 'sec-ferias' ||
                     ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => title.includes(p));
                 if (!isDescanso) {
                     const nome = card.querySelector('.name').innerText;
