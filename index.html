@@ -269,13 +269,6 @@
                 card.dataset.lastSector = novoSetorId;
             }
 
-            // REGISTRAR NO HISTÓRICO
-            const hoje = new Date().toISOString().slice(0,10);
-            const nome = card.querySelector('.name').innerText;
-            let acao = isDescanso ? 'folga' : 'trabalho';
-            if (novoSetorId === 'sec-ferias' || (sectorTitle && sectorTitle.includes('FÉRIA'))) acao = 'ferias';
-            historicoMovimentos.push({ data: hoje, pessoa: nome, acao: acao, setor: novoSetorId, turno: shiftTitle || '', hora: new Date().toTimeString().slice(0,5) });
-
             saveState();
         }
     }
@@ -640,7 +633,26 @@
         let dataHojeStr = agora.toDateString();
         if (dataHojeStr !== ultimaDataVerificada) {
             ultimaDataVerificada = dataHojeStr;
-            localStorage.setItem('ultima_data_verificada', ultimaDataVerificada);
+            localStorage.setItem('ultima_data_verificada', dataHojeStr);
+            
+            // REGISTRAR HISTÓRICO À MEIA-NOITE pra quem está em folga/atestado/férias
+            const hojeISO = new Date().toISOString().slice(0,10);
+            document.querySelectorAll('.card').forEach(card => {
+                const sectorBox = card.closest('.sector-box');
+                if (!sectorBox) return;
+                const sectorId = sectorBox.id;
+                const nome = card.querySelector('.name').innerText;
+                let acao = null;
+                if (sectorId === 'sec-folga') acao = 'folga';
+                else if (sectorId === 'sec-atestado') acao = 'atestado';
+                else if (sectorId === 'sec-ferias') acao = 'ferias';
+                else acao = 'trabalho';
+                
+                const ultimoRegistro = historicoMovimentos.filter(h => h.pessoa === nome).pop();
+                if (!ultimoRegistro || ultimoRegistro.data !== hojeISO || ultimoRegistro.acao !== acao) {
+                    historicoMovimentos.push({ data: hojeISO, pessoa: nome, acao: acao, setor: sectorId, turno: '', hora: '00:00' });
+                }
+            });
             saveState();
         }
 
@@ -695,8 +707,8 @@
                             dataEntrada.setHours(0,0,0,0);
                             hoje.setHours(0,0,0,0);
                             const diasFolga = Math.round((hoje - dataEntrada) / 86400000);
-                            if (diasFolga >= 1) {
-                                avisoFolga = `<span class="folga-consecutiva-badge" title="Clique para ajustar">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
+                            if (diasFolga >= 2) {
+                                avisoFolga = `<span class="folga-consecutiva-badge">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
                             }
                         }
                         tC.innerHTML = avisoFolga + "DESCANSANDO";
