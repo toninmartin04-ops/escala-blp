@@ -690,7 +690,11 @@
                         // FOLGA: apita se 2+ dias seguidos
                         let avisoFolga = "";
                         if (l && l !== "undefined" && l !== "") {
-                            const diasFolga = Math.floor((Date.now() - parseInt(l)) / 86400000);
+                            const dataEntrada = new Date(parseInt(l));
+                            const hoje = new Date();
+                            dataEntrada.setHours(0,0,0,0);
+                            hoje.setHours(0,0,0,0);
+                            const diasFolga = Math.round((hoje - dataEntrada) / 86400000);
                             if (diasFolga >= 1) {
                                 avisoFolga = `<span class="folga-consecutiva-badge" title="Clique para ajustar">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
                             }
