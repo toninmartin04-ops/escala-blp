@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <title>Escala Operacional - BLP</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- SDK DO FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -53,17 +54,9 @@
         .alerta-vermelho { color: #c0392b !important; font-weight: bold; }
         .alerta-pisca { color: #c0392b !important; font-weight: bold; animation: pisca 1s infinite; }
 
-        /* AVISO FOLGA CONSECUTIVA */
-        .folga-consecutiva-badge { font-size: 9px; background: #e67e22; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; animation: pisca 1s infinite; }
-        .folga-consecutiva-badge:hover { background: #d35400; }
-
-        /* ATESTADO - sem apitação, só informativo */
-        .atestado-badge { font-size: 9px; background: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold; display: inline-block; cursor: pointer; }
-        .atestado-badge:hover { background: #e74c3c; }
-
         /* RELATÓRIO MENSAL */
         .relatorio-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; overflow-y: auto; display: none; }
-        .relatorio-content { background: white; margin: 20px auto; padding: 20px; border-radius: 8px; max-width: 1200px; width: 95%; }
+        .relatorio-content { background: white; margin: 20px auto; padding: 20px; border-radius: 8px; max-width: 1200px; width: 95%; position: relative; }
         .relatorio-header { background: #2c3e50; color: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: center; }
         .relatorio-header h2 { margin: 0 0 5px 0; }
         .relatorio-header p { margin: 0; font-size: 14px; opacity: 0.8; }
@@ -219,7 +212,9 @@
       appId: "1:667395061814:web:18a336bf1e3deb7ccb4097"
     };
     
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.firestore();
 
     let isLoading = false;
@@ -252,13 +247,11 @@
             targetZone.appendChild(card);
             
             if (isDescanso) {
+                // Zera apenas o ciclo de dias trabalhados e a tag extra, preservando os domingos consecutivos
                 card.dataset.cicloStart = ""; 
-                card.dataset.domingo = "false";
                 card.dataset.extra = "false";
-                card.dataset.domingosConsecutivos = "0";
-                card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
-                card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
-                atualizarBadgeDomingos(card, 0);
+                const btnExt = card.querySelector('.tag-btn:nth-child(2)');
+                if (btnExt) btnExt.classList.remove('ext-active');
 
                 if (novoSetorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA')) {
                     if (setorAntigo !== 'sec-ferias') card.dataset.localStart = Date.now();
@@ -273,7 +266,25 @@
                 card.dataset.lastSector = novoSetorId;
             }
 
+            registrarMovimentoHistorico(card.querySelector('.name').innerText, setorAntigo, novoSetorId);
             saveState();
+        }
+    }
+
+    function registrarMovimentoHistorico(nome, deSetor, paraSetor) {
+        const hoje = new Date().toISOString().split('T')[0];
+        const isTrabalhoPara = !['sec-folga', 'sec-atestado', 'sec-ferias'].includes(paraSetor);
+        
+        let statusDia = 'folga';
+        if (paraSetor === 'sec-ferias') statusDia = 'ferias';
+        else if (isTrabalhoPara) statusDia = 'trabalho';
+
+        let registro = historicoMovimentos.find(h => h.nome === nome && h.data === hoje);
+        if (!registro) {
+            registro = { nome, data: hoje, status: statusDia };
+            historicoMovimentos.push(registro);
+        } else {
+            registro.status = statusDia;
         }
     }
 
@@ -412,9 +423,24 @@
         }
     }
 
+    function resetGeral() {
+        if(confirm("⚠️ ATENÇÃO: Deseja apagar TUDO e restaurar o padrão inicial?")) {
+            db.collection("escala_blp").doc("dados_atuais").delete().then(() => {
+                localStorage.clear();
+                location.reload();
+            });
+        }
+    }
+
     async function saveState() {
         if (isLoading) return; 
-        const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value, ultimoDomingoContado: ultimoDomingoContado, historico: historicoMovimentos };
+        const state = { 
+            sectors: [], 
+            people: [], 
+            observacoes: document.getElementById('observacoesGerais').value, 
+            ultimoDomingoContado: ultimoDomingoContado, 
+            historico: historicoMovimentos 
+        };
         
         document.querySelectorAll('.sector-box').forEach(sb => {
             const shifts = [];
@@ -453,7 +479,6 @@
         try {
             const doc = await db.collection("escala_blp").doc("dados_atuais").get();
             
-            // FUNÇÃO PARA CRIAR OS TURNOS E A GALERA PADRÃO
             const injetarEstruturaPadrao = () => {
                 if (document.querySelectorAll('.shift-box').length === 0) {
                     addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
@@ -485,7 +510,6 @@
                 perdidos.forEach(p => galeraFoto.push({ n: p, d: "dz-folga" }));
 
                 galeraFoto.forEach(p => {
-                    // Só adiciona se o funcionário já não existir na tela
                     if (![...document.querySelectorAll('.card .name')].some(el => el.innerText === p.n)) {
                         const card = criarPessoa(p.n);
                         const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
@@ -508,284 +532,216 @@
                 injetarEstruturaPadrao();
                 isLoading = false;
                 saveState(); 
-                atualizarDataAmanha(); 
-                return;
-            }
+            } else {
+                const data = doc.data();
+                if (data.observacoes) document.getElementById('observacoesGerais').value = data.observacoes;
+                if (data.ultimoDomingoContado) ultimoDomingoContado = data.ultimoDomingoContado;
+                if (data.historico) {
+                    historicoMovimentos = data.historico;
+                    localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
+                }
 
-            const state = doc.data();
-            if (state.historico && state.historico.length > 0) {
-                historicoMovimentos = state.historico;
-                localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
-            }
-            if (state.ultimoDomingoContado) {
-                ultimoDomingoContado = state.ultimoDomingoContado;
-                localStorage.setItem('ultimo_domingo_contado', ultimoDomingoContado);
-            }
-            
-            if (state.observacoes) {
-                document.getElementById('observacoesGerais').value = state.observacoes;
-            }
-            
-            if (state.sectors && state.sectors.length > 0) {
-                state.sectors.forEach(s => {
-                    if (s.name) { const h = document.querySelector(`#${s.id} .sector-header`); if (h) h.innerText = s.name; }
-                    s.shifts.forEach(sh => {
-                        if (!document.getElementById(sh.id)) {
-                            addShift(s.id, sh.title, sh.id);
+                if (data.sectors) {
+                    data.sectors.forEach(sec => {
+                        const sb = document.getElementById(sec.id);
+                        if (sb) {
+                            const header = sb.querySelector('.sector-header');
+                            if (header) header.innerText = sec.name;
+                            const shiftContainer = sb.querySelector('.shift-container');
+                            if (shiftContainer) shiftContainer.innerHTML = "";
+                            
+                            if (sec.shifts) {
+                                sec.shifts.forEach(sh => {
+                                    addShift(sec.id, sh.title, sh.id);
+                                });
+                            }
                         }
                     });
-                });
-            } else {
-                addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
-                addShift('sec-maxi', 'TURNO B 14:00 AS 22:20', 'dz-maxi-b');
-                addShift('sec-maxi', 'TURNO C 22:00 AS 06:20', 'dz-maxi-c');
-                addShift('sec-garra', 'TURNO A 06:00 AS 14:20', 'dz-garra-a');
-                addShift('sec-sanry', 'TURNO A 06:00 AS 14:20', 'dz-sanry-a');
-                addShift('sec-sanry', 'TURNO B 14:00 AS 22:20', 'dz-sanry-b');
-                addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
-                addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
-                addShift('sec-local', 'TURNO A 06:00 AS 14:20', 'dz-local-a');
-            }
-            
-            if (state.people && state.people.length > 0) {
-                state.people.forEach(p => {
-                    const card = criarPessoa(p.name, p.id, p.domingo || "false", p.extra || "false", p.domingosConsecutivos || "0");
-                    card.dataset.localStart = p.localStart || "";
-                    card.dataset.cicloStart = p.cicloStart || "";
-                    card.dataset.lastSector = p.lastSector || "sec-folga";
-                    const dest = document.getElementById(p.parent) || document.getElementById('dz-folga');
-                    dest.appendChild(card);
-                });
-            }
+                }
 
-            // SE A LISTA ESTIVER VAZIA NO BANCO, FORÇA A INSERÇÃO DA GALERA PADRÃO
-            if (!state.people || state.people.length === 0) {
                 injetarEstruturaPadrao();
-            }
-            
-        } catch(e) {
-            console.error("Erro ao puxar dados do Firebase:", e);
-        }
-        
-        isLoading = false;
-        saveState();
-        atualizarDataAmanha(); 
-    }
 
-    async function resetGeral() { 
-        const senha = prompt("Digite a senha para ZERAR TUDO:");
-        if (senha !== "99495370") {
-            if (senha !== null) alert("Senha incorreta!");
-            return;
+                if (data.people) {
+                    data.people.forEach(p => {
+                        let card = document.getElementById(p.id);
+                        if (!card) {
+                            card = [...document.querySelectorAll('.card')].find(c => c.querySelector('.name').innerText === p.name);
+                        }
+                        if (card) {
+                            card.dataset.localStart = p.localStart || Date.now();
+                            card.dataset.cicloStart = p.cicloStart || "";
+                            card.dataset.lastSector = p.lastSector || "sec-folga";
+                            card.dataset.domingo = p.domingo || "false";
+                            card.dataset.extra = p.extra || "false";
+                            card.dataset.domingosConsecutivos = p.domingosConsecutivos || "0";
+                            
+                            if (p.domingo === "true") card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
+                            if (p.extra === "true") card.querySelector('.tag-btn:nth-child(2)').classList.add('ext-active');
+                            atualizarBadgeDomingos(card, parseInt(card.dataset.domingosConsecutivos));
+
+                            const targetDz = document.getElementById(p.parent) || document.getElementById('dz-folga');
+                            targetDz.appendChild(card);
+                        }
+                    });
+                }
+                isLoading = false;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar do Firebase:", e);
+            isLoading = false;
         }
-        if(confirm("ATENÇÃO: Deseja apagar toda a escala do servidor para todos os usuários?")) { 
-            await db.collection("escala_blp").doc("dados_atuais").delete();
-            localStorage.removeItem('ultimo_domingo_contado');
-            location.reload(); 
-        } 
+        atualizarDataAmanha();
     }
 
     function atualizarDataAmanha() {
         const amanha = new Date();
         amanha.setDate(amanha.getDate() + 1);
-        const dias = ['DOMINGO', 'SEGUNDA-FEIRA', 'TERÇA-FEIRA', 'QUARTA-FEIRA', 'QUINTA-FEIRA', 'SEXTA-FEIRA', 'SÁBADO'];
-        document.getElementById('data-amanha').innerText = `${dias[amanha.getDay()]} ${String(amanha.getDate()).padStart(2, '0')}/${String(amanha.getMonth() + 1).padStart(2, '0')}/${amanha.getFullYear()}`;
+        const diasSemana = ['DOMINGO', 'SEGUNDA-FEIRA', 'TERÇA-FEIRA', 'QUARTA-FEIRA', 'QUINTA-FEIRA', 'SEXTA-FEIRA', 'SÁBADO'];
+        const diaSemana = diasSemana[amanha.getDay()];
+        const dia = String(amanha.getDate()).padStart(2, '0');
+        const mes = String(amanha.getMonth() + 1).padStart(2, '0');
+        const ano = amanha.getFullYear();
+        document.getElementById('data-amanha').innerText = `ESCALA PARA AMANHÃ: ${diaSemana}, ${dia}/${mes}/${ano}`;
     }
 
-    // VERIFICAÇÃO AUTOMÁTICA DOS DOMINGOS (CORRIGIDA)
-    setInterval(() => {
-        if (isLoading) return; 
+    // RELATÓRIO MENSAL E SELETOR
+    let anoSelecionado = new Date().getFullYear();
+    let mesSelecionado = new Date().getMonth() + 1;
 
-        const agora = new Date();
+    function exportarRelatorioMensal() {
+        document.getElementById('selAno').innerText = anoSelecionado;
+        montarGridMeses();
+        document.getElementById('selOverlay').style.display = 'flex';
+    }
 
-        // Descobre qual foi o domingo dessa contagem (mesmo se abrir na segunda)
-        const domingoRef = new Date(agora);
-        domingoRef.setHours(0,0,0,0);
-        domingoRef.setDate(agora.getDate() - agora.getDay());
-        const chaveDomingo = domingoRef.toDateString();
+    function montarGridMeses() {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const grid = document.getElementById('selGrid');
+        grid.innerHTML = '';
+        meses.forEach((m, idx) => {
+            const mNum = idx + 1;
+            const btn = document.createElement('button');
+            btn.className = `sel-mes-btn ${mNum === mesSelecionado ? 'atual' : ''}`;
+            btn.innerText = m;
+            btn.onclick = () => {
+                mesSelecionado = mNum;
+                document.querySelectorAll('.sel-mes-btn').forEach(b => b.classList.remove('atual'));
+                btn.classList.add('atual');
+            };
+            grid.appendChild(btn);
+        });
+    }
 
-        const passouDas11DeDomingo = (agora.getDay() === 0 && agora.getHours() >= 11) || (agora.getDay() > 0);
+    function mudarAno(delta) {
+        anoSelecionado += delta;
+        document.getElementById('selAno').innerText = anoSelecionado;
+    }
 
-        if (passouDas11DeDomingo && ultimoDomingoContado !== chaveDomingo) {
-            document.querySelectorAll('.card').forEach(card => {
-                const sectorBox = card.closest('.sector-box');
-                if (!sectorBox) return;
-                const sectorId = sectorBox.id;
-                const sectorTitle = sectorBox.querySelector('.sector-header').innerText.toUpperCase();
-                const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias' ||
-                    ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => sectorTitle.includes(p));
-                
-                if (!isDescanso) {
-                    // Trabalhando no domingo: marca DOM e soma +1 (uma vez por domingo)
-                    card.dataset.domingo = "true";
-                    const btnDom = card.querySelector('.tag-btn:nth-child(1)');
-                    if (btnDom) btnDom.classList.add('dom-active');
-                    let domSeguidos = parseInt(card.dataset.domingosConsecutivos || "0") + 1;
-                    card.dataset.domingosConsecutivos = domSeguidos;
-                    atualizarBadgeDomingos(card, domSeguidos);
-                } else {
-                    // Folgou no domingo: zera sequência
-                    card.dataset.domingosConsecutivos = "0";
-                    atualizarBadgeDomingos(card, 0);
-                }
-            });
-            ultimoDomingoContado = chaveDomingo;
-            localStorage.setItem('ultimo_domingo_contado', chaveDomingo);
-            saveState();
+    function fecharSelecao() {
+        document.getElementById('selOverlay').style.display = 'none';
+    }
+
+    function confirmarPeriodo() {
+        fecharSelecao();
+        gerarRelatorioCalculado(mesSelecionado, anoSelecionado);
+    }
+
+    function gerarRelatorioCalculado(mes, ano) {
+        const nomesMeses = ['', 'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+        document.getElementById('relatorioTitulo').innerText = `RELATÓRIO MENSAL - ${nomesMeses[mes]} / ${ano}`;
+        document.getElementById('relatorioSubtitulo').innerText = `Consolidado de presença, folgas e férias`;
+
+        const diasNoMes = new Date(ano, mes, 0).getDate();
+        const containerPessoas = document.getElementById('relatorioPessoas');
+        containerPessoas.innerHTML = '';
+
+        const nomesSet = new Set();
+        document.querySelectorAll('.card .name').forEach(el => nomesSet.add(el.innerText));
+        historicoMovimentos.forEach(h => {
+            if (h.data.startsWith(`${ano}-${String(mes).padStart(2, '0')}`)) {
+                nomesSet.add(h.nome);
+            }
+        });
+
+        const nomesArr = Array.from(nomesSet).sort();
+
+        if (nomesArr.length === 0) {
+            containerPessoas.innerHTML = '<p style="text-align:center; padding:20px;">Nenhum registro encontrado para este período.</p>';
+            document.getElementById('relatorioOverlay').style.display = 'block';
+            return;
         }
 
-        let dataHojeStr = agora.toDateString();
-        const eh2359 = (agora.getHours() === 23 && agora.getMinutes() === 59);
-        if (eh2359 && ultimaDataVerificada !== dataHojeStr) {
-            ultimaDataVerificada = dataHojeStr;
-            localStorage.setItem('ultima_data_verificada', dataHojeStr);
-            
-            // REGISTRAR HISTÓRICO ÀS 23:59 pra quem está em folga/atestado/férias/trabalho
-            const hojeISO = new Date().toISOString().slice(0,10);
-            document.querySelectorAll('.card').forEach(card => {
-                const sectorBox = card.closest('.sector-box');
-                if (!sectorBox) return;
-                const sectorId = sectorBox.id;
-                const nome = card.querySelector('.name').innerText;
-                let acao = null;
-                if (sectorId === 'sec-folga') acao = 'folga';
-                else if (sectorId === 'sec-atestado') acao = 'atestado';
-                else if (sectorId === 'sec-ferias') acao = 'ferias';
-                else acao = 'trabalho';
+        nomesArr.forEach(nome => {
+            let totalTrabalho = 0;
+            let totalFolga = 0;
+            let totalDomingos = 0;
+            let totalFerias = 0;
+
+            const diasStatus = {};
+            for (let d = 1; d <= diasNoMes; d++) {
+                const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const mov = historicoMovimentos.find(h => h.nome === nome && h.data === dataStr);
                 
-                const ultimoRegistro = historicoMovimentos.filter(h => h.pessoa === nome).pop();
-                if (!ultimoRegistro || ultimoRegistro.data !== hojeISO || ultimoRegistro.acao !== acao) {
-                    historicoMovimentos.push({ data: hojeISO, pessoa: nome, acao: acao, setor: sectorId, turno: '', hora: '23:59' });
-                }
-                
-                // ZERAR DOMINGOS ÀS 23:59 para quem está em descanso
-                if (sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias') {
-                    card.dataset.domingosConsecutivos = "0";
-                    atualizarBadgeDomingos(card, 0);
-                }
-            });
-            saveState();
-        }
-
-        atualizarDataAmanha(); 
-        document.querySelectorAll('.card').forEach(card => {
-            const l = card.dataset.localStart; const c = card.dataset.cicloStart;
-            const tL = card.querySelector('.timer-local'); const tC = card.querySelector('.timer-ciclo');
-            
-            const parentZone = card.parentElement;
-            const shiftHeaderElem = parentZone.previousElementSibling;
-            const shiftTitle = shiftHeaderElem && shiftHeaderElem.classList.contains('shift-header') ? shiftHeaderElem.innerText.toUpperCase() : "";
-            const sectorHeaderElem = card.closest('.sector-box').querySelector('.sector-header');
-            const sectorTitle = sectorHeaderElem ? sectorHeaderElem.innerText.toUpperCase() : "";
-            const sectorId = card.closest('.sector-box').id;
-
-            const isFerias = sectorId === 'sec-ferias' || shiftTitle.includes('FÉRIA') || shiftTitle.includes('FERIA') || sectorTitle.includes('FÉRIA');
-            const isDescanso = sectorId === 'sec-folga' || sectorId === 'sec-atestado' || isFerias || ['FOLGA', 'ATESTADO', 'DESCANSO'].some(p => shiftTitle.includes(p) || sectorTitle.includes(p));
-
-            const trabalhouDomingo = card.dataset.domingo === "true";
-            const folgaExtra = card.dataset.extra === "true";
-
-            if (isFerias) {
-                if (l && l !== "undefined" && l !== "") {
-                    const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                    tL.innerText = `Em férias há: ${dias} dia(s)`;
-                } else { tL.innerText = "FÉRIAS: hoje"; }
-                tC.innerHTML = "-";
-            } else {
-                if (l && l !== "undefined" && l !== "") {
-                    const dias = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                    tL.innerText = `Neste terminal há: ${dias} dia(s)`;
-                } else { tL.innerText = "S/ REGISTRO"; }
-
-                if (isDescanso) {
-                    // ATESTADO: mostra dias mas NÃO apita (diferente de folga)
-                    if (sectorId === 'sec-atestado') {
-                        let infoAtestado = "";
-                        if (l && l !== "undefined" && l !== "") {
-                            const diasAt = Math.floor((Date.now() - parseInt(l)) / 86400000);
-                            infoAtestado = `<span class="atestado-badge">${diasAt} DIA(S) DE ATESTADO</span><br>`;
-                        } else {
-                            infoAtestado = `<span class="atestado-badge">ATESTADO: hoje</span><br>`;
-                        }
-                        tC.innerHTML = infoAtestado + "DESCANSANDO";
-                        tC.className = "timer-ciclo";
-                    } else {
-                        // FOLGA: apita se 2+ dias seguidos
-                        let avisoFolga = "";
-                        if (l && l !== "undefined" && l !== "") {
-                            const dataEntrada = new Date(parseInt(l));
-                            const hoje = new Date();
-                            dataEntrada.setHours(0,0,0,0);
-                            hoje.setHours(0,0,0,0);
-                            const diasFolga = Math.round((hoje - dataEntrada) / 86400000);
-                            if (diasFolga >= 2) {
-                                avisoFolga = `<span class="folga-consecutiva-badge">⚠️ FOLGA A ${diasFolga}+ DIAS</span><br>`;
-                            }
-                        }
-                        tC.innerHTML = avisoFolga + "DESCANSANDO";
-                        tC.className = "timer-ciclo";
+                let st = 'vazio';
+                if (mov) {
+                    st = mov.status;
+                    if (st === 'trabalho') {
+                        totalTrabalho++;
+                        const dateObj = new Date(ano, mes - 1, d);
+                        if (dateObj.getDay() === 0) totalDomingos++;
+                    } else if (st === 'folga') {
+                        totalFolga++;
+                    } else if (st === 'ferias') {
+                        totalFerias++;
                     }
-                } else {
-                    if (c && c !== "undefined" && c !== "") {
-                        const diasC = Math.floor((Date.now() - parseInt(c)) / 86400000) + 1;
-                        
-                        let limitPisca = 14, limitVermelho = 10, limitLaranja = 7;
-                        
-                        if (trabalhouDomingo && !folgaExtra) {
-                            limitPisca = 6;
-                            limitVermelho = 5;
-                            limitLaranja = 4;
-                        }
-
-                        if (diasC >= limitPisca) {
-                            tC.innerHTML = `<span class="alerta-pisca">Trabalhando há ${diasC} dias ⚠️</span>`;
-                        } else if (diasC >= limitVermelho) {
-                            tC.innerHTML = `<span class="alerta-vermelho">Trabalhando há ${diasC} dias</span>`;
-                        } else if (diasC >= limitLaranja) {
-                            tC.innerHTML = `<span class="alerta-laranja">Trabalhando há ${diasC} dias</span>`;
-                        } else {
-                            tC.innerHTML = `Trabalhando há ${diasC} dias`;
-                        }
-                    } else { tC.innerHTML = "-"; }
                 }
+                diasStatus[d] = st;
             }
-        });
-    }, 1000);
 
-    function exportarLimpo() {
-        // AVISO 4º DOMINGO: quem tem 3+ e continua na escala
-        const emRisco = [];
-        document.querySelectorAll('.card').forEach(card => {
-            const n = parseInt(card.dataset.domingosConsecutivos || "0");
-            if (n >= 3) {
-                const box = card.closest('.sector-box');
-                if (!box) return;
-                const sid = box.id;
-                const title = box.querySelector('.sector-header').innerText.toUpperCase();
-                const isDescanso = sid === 'sec-folga' || sid === 'sec-atestado' || sid === 'sec-ferias' ||
-                    ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => title.includes(p));
-                if (!isDescanso) {
-                    const nome = card.querySelector('.name').innerText;
-                    emRisco.push(`• ${nome} está com ${n} domingos - esse será o ${n+1}º`);
-                }
+            const pBox = document.createElement('div');
+            pBox.className = 'pessoa-relatorio';
+
+            let calHtml = `<div class="calendario-grid">`;
+            const rotulosDias = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+            rotulosDias.forEach(r => calHtml += `<div class="cal-dia-label">${r}</div>`);
+
+            const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
+            const offset = (primeiroDiaSemana === 0) ? 6 : primeiroDiaSemana - 1;
+
+            for (let i = 0; i < offset; i++) {
+                calHtml += `<div class="cal-dia cal-vazio"></div>`;
             }
+
+            for (let d = 1; d <= diasNoMes; d++) {
+                const st = diasStatus[d];
+                let cls = 'cal-vazio';
+                if (st === 'trabalho') cls = 'cal-trabalho';
+                else if (st === 'folga') cls = 'cal-folga';
+                else if (st === 'ferias') cls = 'cal-ferias';
+
+                const dateObj = new Date(ano, mes - 1, d);
+                const isDom = dateObj.getDay() === 0 ? 'cal-domingo' : '';
+
+                calHtml += `<div class="cal-dia ${cls} ${isDom}" title="${d}/${mes}/${ano}: ${st}">${d}</div>`;
+            }
+            calHtml += `</div>`;
+
+            pBox.innerHTML = `
+                <div class="pessoa-nome">${nome}</div>
+                <div class="pessoa-stats">
+                    <div class="stat-box stat-trabalho">Trabalho: <strong>${totalTrabalho}</strong> dias</div>
+                    <div class="stat-box stat-folga">Folgas: <strong>${totalFolga}</strong> dias</div>
+                    <div class="stat-box stat-domingo">Domingos Trab.: <strong>${totalDomingos}</strong></div>
+                    <div class="stat-box stat-ferias">Férias: <strong>${totalFerias}</strong> dias</div>
+                </div>
+                ${calHtml}
+            `;
+            containerPessoas.appendChild(pBox);
         });
-        if (emRisco.length > 0) {
-            const msg = `ATENÇÃO - 4º DOMINGO:\n\n${emRisco.join('\n')}\n\nProsseguir mesmo assim e salvar a foto?\nOK = Salvar foto / Cancelar = Voltar para alterar`;
-            if (!confirm(msg)) return;
-        }
-        document.body.classList.add('export-mode'); 
-        setTimeout(() => {
-            html2canvas(document.getElementById('painel'), { scale: 2 }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `Escala_BLP_${new Date().toLocaleDateString()}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                document.body.classList.remove('export-mode'); 
-            });
-        }, 100);
+
+        document.getElementById('relatorioOverlay').style.display = 'block';
     }
-    
+
     function fecharRelatorio() {
         document.getElementById('relatorioOverlay').style.display = 'none';
     }
@@ -795,193 +751,70 @@
     }
 
     function exportarCSV() {
-        const overlay = document.getElementById('relatorioOverlay');
-        const mes = overlay.dataset.mes || '';
-        const ano = overlay.dataset.ano || '';
-        const pessoas = JSON.parse(overlay.dataset.pessoas || '[]');
-        
-        let csv = 'Nome;Total Folgas;Total Trabalho;Domingos Trabalhados;Férias\n';
-        pessoas.forEach(p => {
-            csv += `${p.nome};${p.folgas};${p.trabalho};${p.domingos};${p.ferias}\n`;
+        let csv = "Nome,Data,Status\n";
+        historicoMovimentos.forEach(h => {
+            csv += `"${h.nome}","${h.data}","${h.status}"\n`;
         });
-        
-        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `Relatorio_${mes}_${ano}.csv`;
-        link.click();
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `relatorio_escala_${mesSelecionado}_${anoSelecionado}.csv`;
+        a.click();
     }
 
-    function exportarRelatorioMensal() {
-        const hoje = new Date();
-        selAnoAtual = hoje.getFullYear();
-        selMesAtual = hoje.getMonth() + 1;
-        document.getElementById('selAno').textContent = selAnoAtual;
-        renderizarSelecao();
-        document.getElementById('selOverlay').style.display = 'flex';
-    }
-
-    let selAnoAtual = 2026;
-    let selMesAtual = 11;
-
-    function mudarAno(delta) {
-        selAnoAtual += delta;
-        document.getElementById('selAno').textContent = selAnoAtual;
-        renderizarSelecao();
-    }
-
-    function renderizarSelecao() {
-        const grid = document.getElementById('selGrid');
-        const nomesMeses = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-        const hoje = new Date();
-        let html = '';
-        for (let m = 1; m <= 12; m++) {
-            const ehAtual = (m === hoje.getMonth() + 1 && selAnoAtual === hoje.getFullYear());
-            const ativo = (m === selMesAtual);
-            let cls = 'sel-mes-btn';
-            if (ehAtual) cls += ' atual';
-            if (ativo && !ehAtual) cls += ' ' ;
-            if (ativo) cls = 'sel-mes-btn atual';
-            html += `<button class="${cls}" data-mes="${m}" onclick="selMesAtual=${m};renderizarSelecao()">${nomesMeses[m-1]}</button>`;
-        }
-        grid.innerHTML = html;
-    }
-
-    function fecharSelecao() {
-        document.getElementById('selOverlay').style.display = 'none';
-    }
-
-    function confirmarPeriodo() {
-        document.getElementById('selOverlay').style.display = 'none';
-        gerarRelatorio(selMesAtual, selAnoAtual);
-    }
-
-    function gerarRelatorio(mes, ano) {
-
-        const nomesMeses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-        const diasSemana = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
-        const diasNoMes = new Date(ano, mes, 0).getDate();
-        const primeiroDia = new Date(ano, mes - 1, 1).getDay();
-
-        // Filtrar histórico do mês
-        const prefixoMes = `${ano}-${String(mes).padStart(2,'0')}`;
-        const historicoMes = historicoMovimentos.filter(h => h.data.startsWith(prefixoMes));
-
-        // Agrupar por pessoa
-        const mapaPessoas = {};
-        historicoMes.forEach(h => {
-            if (!mapaPessoas[h.pessoa]) mapaPessoas[h.pessoa] = [];
-            mapaPessoas[h.pessoa].push(h);
-        });
-
-        // Também incluir pessoas que estão na escala mas sem movimento no mês
-        document.querySelectorAll('.card .name').forEach(el => {
-            const nome = el.innerText;
-            if (!mapaPessoas[nome]) mapaPessoas[nome] = [];
-        });
-
-        const nomes = Object.keys(mapaPessoas).sort();
-        const overlay = document.getElementById('relatorioOverlay');
-        const content = document.getElementById('relatorioPessoas');
-        const titulo = document.getElementById('relatorioTitulo');
-        const subtitulo = document.getElementById('relatorioSubtitulo');
-
-        titulo.textContent = `RELATÓRIO DE ${nomesMeses[mes-1]} ${ano}`;
-        subtitulo.textContent = `Período: 01/${String(mes).padStart(2,'0')}/${ano} a ${String(diasNoMes).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
-
-        let html = '';
-
-        nomes.forEach(nome => {
-            const movimentos = mapaPessoas[nome];
+    // ATUALIZAÇÃO DOS TEMPORIZADORES NA TELA
+    setInterval(() => {
+        const agora = Date.now();
+        document.querySelectorAll('.card').forEach(card => {
+            const spanLocal = card.querySelector('.timer-local');
+            const spanCiclo = card.querySelector('.timer-ciclo');
             
-            // Calcular status de cada dia do mês
-            const statusDias = {};
-            let folgas = 0, trabalho = 0, domingos = 0, ferias = 0;
-
-            // Estado inicial: sem registro
-            for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
-
-            // Processar movimentos ordenados por data
-            movimentos.sort((a, b) => a.data.localeCompare(b.data));
-            let statusAtual = 'vazio';
-            movimentos.forEach(m => {
-                const dia = parseInt(m.data.split('-')[2]);
-                if (m.acao === 'folga' || m.acao === 'ferias') {
-                    statusAtual = m.acao;
-                } else if (m.acao === 'trabalho') {
-                    statusAtual = 'trabalho';
-                }
-                for (let d = dia; d <= diasNoMes; d++) {
-                    statusDias[d] = statusAtual;
-                }
-            });
-
-            // Contar
-            for (let d = 1; d <= diasNoMes; d++) {
-                const diaSemana = new Date(ano, mes - 1, d).getDay();
-                if (statusDias[d] === 'folga') folgas++;
-                else if (statusDias[d] === 'trabalho') {
-                    trabalho++;
-                    if (diaSemana === 0) domingos++;
-                }
-                else if (statusDias[d] === 'ferias') ferias++;
+            const localStart = parseInt(card.dataset.localStart);
+            if (spanLocal && !isNaN(localStart)) {
+                const diffLocal = Math.floor((agora - localStart) / 86400000);
+                spanLocal.innerText = `${diffLocal}d no setor`;
             }
 
-            // Calendário HTML
-            let calHtml = '<div class="calendario-grid">';
-            for (let i = 0; i < 7; i++) calHtml += `<div class="cal-dia-label">${diasSemana[i]}</div>`;
-            for (let i = 0; i < primeiroDia; i++) calHtml += '<div class="cal-dia cal-vazio"></div>';
-            for (let d = 1; d <= diasNoMes; d++) {
-                const diaSemana = new Date(ano, mes - 1, d).getDay();
-                const cls = statusDias[d] === 'trabalho' ? 'cal-trabalho' :
-                            statusDias[d] === 'folga' ? 'cal-folga' :
-                            statusDias[d] === 'ferias' ? 'cal-ferias' : 'cal-vazio';
-                const domCls = diaSemana === 0 ? ' cal-domingo' : '';
-                calHtml += `<div class="cal-dia ${cls}${domCls}" title="${String(d).padStart(2,'0')}/${String(mes).padStart(2,'0')} - ${statusDias[d]}">${d}</div>`;
+            const cicloStart = parseInt(card.dataset.cicloStart);
+            if (spanCiclo && !isNaN(cicloStart) && card.dataset.cicloStart !== "") {
+                const diffCiclo = Math.floor((agora - cicloStart) / 86400000);
+                spanCiclo.innerText = `Ciclo: ${diffCiclo}d`;
+                
+                spanCiclo.className = "timer-ciclo";
+                if (diffCiclo >= 7 && diffCiclo < 10) {
+                    spanCiclo.classList.add('alerta-laranja');
+                } else if (diffCiclo >= 10 && diffCiclo < 14) {
+                    spanCiclo.classList.add('alerta-vermelho');
+                } else if (diffCiclo >= 14) {
+                    spanCiclo.classList.add('alerta-pisca');
+                }
+            } else if (spanCiclo) {
+                spanCiclo.innerText = "";
             }
-            calHtml += '</div>';
-
-            html += `
-                <div class="pessoa-relatorio">
-                    <div class="pessoa-nome">${nome}</div>
-                    <div class="pessoa-stats">
-                        <div class="stat-box stat-folga">Folgas: <strong>${folgas}</strong></div>
-                        <div class="stat-box stat-trabalho">Trabalho: <strong>${trabalho}</strong></div>
-                        <div class="stat-box stat-domingo">Domingos: <strong>${domingos}</strong></div>
-                        <div class="stat-box stat-ferias">Férias: <strong>${ferias}</strong></div>
-                    </div>
-                    ${calHtml}
-                </div>`;
         });
+    }, 1000);
 
-        content.innerHTML = html;
-        overlay.dataset.mes = nomesMeses[mes-1];
-        overlay.dataset.ano = ano;
-        overlay.dataset.pessoas = JSON.stringify(nomes.map(n => {
-            const movimentos = mapaPessoas[n];
-            const statusDias = {};
-            for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
-            movimentos.sort((a, b) => a.data.localeCompare(b.data));
-            let statusAtual = 'vazio';
-            movimentos.forEach(m => {
-                const dia = parseInt(m.data.split('-')[2]);
-                if (m.acao === 'folga' || m.acao === 'ferias') statusAtual = m.acao;
-                else if (m.acao === 'trabalho') statusAtual = 'trabalho';
-                for (let d = dia; d <= diasNoMes; d++) statusDias[d] = statusAtual;
-            });
-            let folgas=0, trabalho=0, domingos=0, ferias=0;
-            for (let d = 1; d <= diasNoMes; d++) {
-                const ds = new Date(ano, mes-1, d).getDay();
-                if (statusDias[d]==='folga') folgas++;
-                else if (statusDias[d]==='trabalho') { trabalho++; if(ds===0) domingos++; }
-                else if (statusDias[d]==='ferias') ferias++;
-            }
-            return { nome: n, folgas, trabalho, domingos, ferias };
-        }));
-        overlay.style.display = 'block';
+    // EXPORTAR FOTO LIMPA
+    function exportarLimpo() {
+        const painel = document.getElementById('painel');
+        painel.classList.add('export-mode');
+        
+        html2canvas(painel, { scale: 2, useCORS: true }).then(canvas => {
+            painel.classList.remove('export-mode');
+            const link = document.createElement('a');
+            link.download = 'escala_blp_limpa.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            painel.classList.remove('export-mode');
+            console.error("Erro ao gerar imagem:", err);
+            alert("Erro ao exportar imagem.");
+        });
     }
 
-    window.onload = () => { loadState(); };
+    window.onload = loadState;
 </script>
+
 </body>
 </html>
