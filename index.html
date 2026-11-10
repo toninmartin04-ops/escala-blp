@@ -145,6 +145,8 @@
     <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
     <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
     <button style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarRelatorioMensal()">📊 RELATÓRIO MENSAL</button>
+    <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
+    <button style="background:#8e44ad; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="limparHistorico()">🗑️ LIMPAR HISTÓRICO</button>
 </div>
 
 <!-- MODAL SELETOR DE MÊS/ANO -->
@@ -226,6 +228,13 @@
     let ultimaDataVerificada = localStorage.getItem('ultima_data_verificada') || new Date().toDateString();
     let ultimoDomingoContado = localStorage.getItem('ultimo_domingo_contado') || "";
     let historicoMovimentos = JSON.parse(localStorage.getItem('historico_movimentos') || '[]');
+
+    // Limpar histórico corrompido (UTC + fill-forward) uma única vez
+    if (!localStorage.getItem('historico_v2_limpo')) {
+        historicoMovimentos = [];
+        localStorage.setItem('historico_movimentos', '[]');
+        localStorage.setItem('historico_v2_limpo', '1');
+    }
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -511,6 +520,16 @@
             }
 
             const state = doc.data();
+            
+            // Limpar histórico corrompido do Firebase uma única vez
+            if (!localStorage.getItem('historico_v2_limpo')) {
+                if (state.historico) {
+                    state.historico = [];
+                    await db.collection("escala_blp").doc("dados_atuais").set(state);
+                }
+                localStorage.setItem('historico_v2_limpo', '1');
+            }
+            
             if (state.historico && state.historico.length > 0) {
                 historicoMovimentos = state.historico;
                 localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
@@ -779,6 +798,24 @@
         }, 100);
     }
     
+    async function limparHistorico() {
+        if (confirm("Deseja apagar TODO o histórico de movimentos? O relatório mensal será resetado. A escala atual NÃO será afetada.")) {
+            historicoMovimentos = [];
+            localStorage.setItem('historico_movimentos', '[]');
+            try {
+                const doc = await db.collection("escala_blp").doc("dados_atuais").get();
+                if (doc.exists) {
+                    const state = doc.data();
+                    state.historico = [];
+                    await db.collection("escala_blp").doc("dados_atuais").set(state);
+                }
+            } catch(e) {
+                console.error("Erro ao limpar histórico:", e);
+            }
+            alert("Histórico limpo! A partir de hoje os dados serão registrados corretamente.");
+        }
+    }
+
     function fecharRelatorio() {
         document.getElementById('relatorioOverlay').style.display = 'none';
     }
