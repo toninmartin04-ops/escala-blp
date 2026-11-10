@@ -247,7 +247,7 @@
             targetZone.appendChild(card);
             
             if (isDescanso) {
-                // Zera apenas o ciclo de dias trabalhados e a tag extra, preservando os domingos consecutivos
+                // Zera apenas o ciclo de dias trabalhados e a tag extra, MANTENDO INTOCADOS os domingos e a contagem de domingos consecutivos
                 card.dataset.cicloStart = ""; 
                 card.dataset.extra = "false";
                 const btnExt = card.querySelector('.tag-btn:nth-child(2)');
@@ -479,57 +479,50 @@
         try {
             const doc = await db.collection("escala_blp").doc("dados_atuais").get();
             
-            const injetarEstruturaPadrao = () => {
-                if (document.querySelectorAll('.shift-box').length === 0) {
-                    addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
-                    addShift('sec-maxi', 'TURNO B 14:00 AS 22:20', 'dz-maxi-b');
-                    addShift('sec-maxi', 'TURNO C 22:00 AS 06:20', 'dz-maxi-c');
-                    
-                    addShift('sec-garra', 'TURNO A 06:00 AS 14:20', 'dz-garra-a');
-                    
-                    addShift('sec-sanry', 'TURNO A 06:00 AS 14:20', 'dz-sanry-a');
-                    addShift('sec-sanry', 'TURNO B 14:00 AS 22:20', 'dz-sanry-b');
-                    addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
-                    
-                    addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
-                    
-                    addShift('sec-local', 'TURNO A 06:00 AS 14:20', 'dz-local-a');
-                }
+            const galeraPadrao = [
+                { n: "MATHEUS", d: "dz-maxi-a" }, { n: "MARTIM", d: "dz-maxi-a" }, { n: "ROBERTO", d: "dz-maxi-a" }, { n: "VINICIUS", d: "dz-maxi-a" },
+                { n: "BRUNO", d: "dz-maxi-b" }, { n: "ANSELMO", d: "dz-maxi-b" }, { n: "CAIO B", d: "dz-maxi-b" }, { n: "FLAVIO", d: "dz-maxi-b" }, { n: "LUCAS SILVEIRA", d: "dz-maxi-b" },
+                { n: "ANTONIO", d: "dz-maxi-c" }, { n: "MARCOS", d: "dz-maxi-c" }, { n: "HALEFI", d: "dz-maxi-c" }, { n: "KAIO CORREA", d: "dz-maxi-c" },
+                { n: "RICARDO", d: "dz-sanry-a" }, { n: "AIRTON", d: "dz-sanry-a" }, { n: "ALISON", d: "dz-sanry-a" },
+                { n: "THIAGO", d: "dz-sanry-b" }, { n: "JOÃO LUCAS", d: "dz-sanry-b" }, { n: "ANDRE", d: "dz-sanry-b" },
+                { n: "LUCAS OLIVEIRA", d: "dz-sanry-c" }, { n: "KAIO", d: "dz-sanry-c" },
+                { n: "ALAN", d: "dz-ferias" },
+                { n: "ADRIAN", d: "dz-folga" }, { n: "PEDRO", d: "dz-folga" }, { n: "NATHAN", d: "dz-folga" }, { n: "RENAN", d: "dz-folga" }
+            ];
 
-                const galeraFoto = [
-                    { n: "MATHEUS", d: "dz-maxi-a" }, { n: "MARTIM", d: "dz-maxi-a" }, { n: "ROBERTO", d: "dz-maxi-a" }, { n: "VINICIUS", d: "dz-maxi-a" },
-                    { n: "BRUNO", d: "dz-maxi-b" }, { n: "ANSELMO", d: "dz-maxi-b" }, { n: "CAIO B", d: "dz-maxi-b" }, { n: "FLAVIO", d: "dz-maxi-b" }, { n: "LUCAS SILVEIRA", d: "dz-maxi-b" },
-                    { n: "ANTONIO", d: "dz-maxi-c" }, { n: "MARCOS", d: "dz-maxi-c" }, { n: "HALEFI", d: "dz-maxi-c" }, { n: "KAIO CORREA", d: "dz-maxi-c" },
-                    { n: "RICARDO", d: "dz-sanry-a" }, { n: "AIRTON", d: "dz-sanry-a" }, { n: "ALISON", d: "dz-sanry-a" },
-                    { n: "THIAGO", d: "dz-sanry-b" }, { n: "JOÃO LUCAS", d: "dz-sanry-b" }, { n: "ANDRE", d: "dz-sanry-b" },
-                    { n: "LUCAS OLIVEIRA", d: "dz-sanry-c" }, { n: "KAIO", d: "dz-sanry-c" },
-                    { n: "ALAN", d: "dz-ferias" }
-                ];
+            if (document.querySelectorAll('.shift-box').length === 0) {
+                addShift('sec-maxi', 'TURNO A 06:00 AS 14:20', 'dz-maxi-a');
+                addShift('sec-maxi', 'TURNO B 14:00 AS 22:20', 'dz-maxi-b');
+                addShift('sec-maxi', 'TURNO C 22:00 AS 06:20', 'dz-maxi-c');
                 
-                const perdidos = ["ADRIAN", "PEDRO", "NATHAN", "RENAN"];
-                perdidos.forEach(p => galeraFoto.push({ n: p, d: "dz-folga" }));
-
-                galeraFoto.forEach(p => {
-                    if (![...document.querySelectorAll('.card .name')].some(el => el.innerText === p.n)) {
-                        const card = criarPessoa(p.n);
-                        const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
-                        dest.appendChild(card);
-                        
-                        if (p.d === 'dz-folga' || p.d === 'dz-ferias') {
-                            card.dataset.lastSector = p.d === 'dz-ferias' ? 'sec-ferias' : 'sec-folga';
-                            card.dataset.cicloStart = "";
-                            if (p.d === 'dz-ferias') card.dataset.localStart = Date.now();
-                        } else {
-                            card.dataset.lastSector = document.getElementById(p.d).closest('.sector-box').id;
-                            card.dataset.localStart = Date.now();
-                            card.dataset.cicloStart = Date.now();
-                        }
-                    }
-                });
-            };
+                addShift('sec-garra', 'TURNO A 06:00 AS 14:20', 'dz-garra-a');
+                
+                addShift('sec-sanry', 'TURNO A 06:00 AS 14:20', 'dz-sanry-a');
+                addShift('sec-sanry', 'TURNO B 14:00 AS 22:20', 'dz-sanry-b');
+                addShift('sec-sanry', 'TURNO C 22:00 AS 06:20', 'dz-sanry-c');
+                
+                addShift('sec-almox', 'TURNO A 06:00 AS 14:20', 'dz-almox-a');
+                
+                addShift('sec-local', 'TURNO A 06:00 AS 14:20', 'dz-local-a');
+            }
 
             if (!doc.exists) {
-                injetarEstruturaPadrao();
+                // Primeira vez: cria a equipe padrão com ciclos normais
+                galeraPadrao.forEach(p => {
+                    const card = criarPessoa(p.n);
+                    const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
+                    dest.appendChild(card);
+                    
+                    if (p.d === 'dz-folga' || p.d === 'dz-ferias') {
+                        card.dataset.lastSector = p.d === 'dz-ferias' ? 'sec-ferias' : 'sec-folga';
+                        card.dataset.cicloStart = "";
+                        if (p.d === 'dz-ferias') card.dataset.localStart = Date.now();
+                    } else {
+                        card.dataset.lastSector = document.getElementById(p.d).closest('.sector-box').id;
+                        card.dataset.localStart = Date.now();
+                        card.dataset.cicloStart = Date.now();
+                    }
+                });
                 isLoading = false;
                 saveState(); 
             } else {
@@ -559,31 +552,38 @@
                     });
                 }
 
-                injetarEstruturaPadrao();
-
-                if (data.people) {
+                // RESTAURAÇÃO FIEL DOS DADOS DA NUVEM (Preservando ciclos, datas e contagens exatas)
+                if (data.people && data.people.length > 0) {
                     data.people.forEach(p => {
-                        let card = document.getElementById(p.id);
-                        if (!card) {
-                            card = [...document.querySelectorAll('.card')].find(c => c.querySelector('.name').innerText === p.name);
-                        }
-                        if (card) {
-                            card.dataset.localStart = p.localStart || Date.now();
-                            card.dataset.cicloStart = p.cicloStart || "";
-                            card.dataset.lastSector = p.lastSector || "sec-folga";
-                            card.dataset.domingo = p.domingo || "false";
-                            card.dataset.extra = p.extra || "false";
-                            card.dataset.domingosConsecutivos = p.domingosConsecutivos || "0";
-                            
-                            if (p.domingo === "true") card.querySelector('.tag-btn:nth-child(1)').classList.add('dom-active');
-                            if (p.extra === "true") card.querySelector('.tag-btn:nth-child(2)').classList.add('ext-active');
-                            atualizarBadgeDomingos(card, parseInt(card.dataset.domingosConsecutivos));
-
-                            const targetDz = document.getElementById(p.parent) || document.getElementById('dz-folga');
-                            targetDz.appendChild(card);
-                        }
+                        const card = criarPessoa(p.name, p.id, p.domingo, p.extra, p.domingosConsecutivos);
+                        card.dataset.localStart = p.localStart || Date.now();
+                        card.dataset.cicloStart = p.cicloStart || "";
+                        card.dataset.lastSector = p.lastSector || "sec-folga";
+                        
+                        const targetDz = document.getElementById(p.parent) || document.getElementById('dz-folga');
+                        targetDz.appendChild(card);
+                    });
+                } else {
+                    galeraPadrao.forEach(p => {
+                        const card = criarPessoa(p.n);
+                        const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
+                        dest.appendChild(card);
                     });
                 }
+
+                // Verifica se foi adicionado algum funcionário novo na lista padrão que ainda não estava na nuvem
+                galeraPadrao.forEach(gp => {
+                    const existe = [...document.querySelectorAll('.card .name')].some(el => el.innerText === gp.n);
+                    if (!existe) {
+                        const card = criarPessoa(gp.n);
+                        const dest = document.getElementById(gp.d) || document.getElementById('dz-folga');
+                        dest.appendChild(card);
+                        card.dataset.localStart = Date.now();
+                        card.dataset.cicloStart = (gp.d === 'dz-folga' || gp.d === 'dz-ferias') ? "" : Date.now();
+                        card.dataset.lastSector = (gp.d === 'dz-ferias') ? 'sec-ferias' : ((gp.d === 'dz-folga') ? 'sec-folga' : document.getElementById(gp.d).closest('.sector-box').id);
+                    }
+                });
+
                 isLoading = false;
             }
         } catch (e) {
@@ -613,208 +613,3 @@
         montarGridMeses();
         document.getElementById('selOverlay').style.display = 'flex';
     }
-
-    function montarGridMeses() {
-        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        const grid = document.getElementById('selGrid');
-        grid.innerHTML = '';
-        meses.forEach((m, idx) => {
-            const mNum = idx + 1;
-            const btn = document.createElement('button');
-            btn.className = `sel-mes-btn ${mNum === mesSelecionado ? 'atual' : ''}`;
-            btn.innerText = m;
-            btn.onclick = () => {
-                mesSelecionado = mNum;
-                document.querySelectorAll('.sel-mes-btn').forEach(b => b.classList.remove('atual'));
-                btn.classList.add('atual');
-            };
-            grid.appendChild(btn);
-        });
-    }
-
-    function mudarAno(delta) {
-        anoSelecionado += delta;
-        document.getElementById('selAno').innerText = anoSelecionado;
-    }
-
-    function fecharSelecao() {
-        document.getElementById('selOverlay').style.display = 'none';
-    }
-
-    function confirmarPeriodo() {
-        fecharSelecao();
-        gerarRelatorioCalculado(mesSelecionado, anoSelecionado);
-    }
-
-    function gerarRelatorioCalculado(mes, ano) {
-        const nomesMeses = ['', 'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
-        document.getElementById('relatorioTitulo').innerText = `RELATÓRIO MENSAL - ${nomesMeses[mes]} / ${ano}`;
-        document.getElementById('relatorioSubtitulo').innerText = `Consolidado de presença, folgas e férias`;
-
-        const diasNoMes = new Date(ano, mes, 0).getDate();
-        const containerPessoas = document.getElementById('relatorioPessoas');
-        containerPessoas.innerHTML = '';
-
-        const nomesSet = new Set();
-        document.querySelectorAll('.card .name').forEach(el => nomesSet.add(el.innerText));
-        historicoMovimentos.forEach(h => {
-            if (h.data.startsWith(`${ano}-${String(mes).padStart(2, '0')}`)) {
-                nomesSet.add(h.nome);
-            }
-        });
-
-        const nomesArr = Array.from(nomesSet).sort();
-
-        if (nomesArr.length === 0) {
-            containerPessoas.innerHTML = '<p style="text-align:center; padding:20px;">Nenhum registro encontrado para este período.</p>';
-            document.getElementById('relatorioOverlay').style.display = 'block';
-            return;
-        }
-
-        nomesArr.forEach(nome => {
-            let totalTrabalho = 0;
-            let totalFolga = 0;
-            let totalDomingos = 0;
-            let totalFerias = 0;
-
-            const diasStatus = {};
-            for (let d = 1; d <= diasNoMes; d++) {
-                const dataStr = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const mov = historicoMovimentos.find(h => h.nome === nome && h.data === dataStr);
-                
-                let st = 'vazio';
-                if (mov) {
-                    st = mov.status;
-                    if (st === 'trabalho') {
-                        totalTrabalho++;
-                        const dateObj = new Date(ano, mes - 1, d);
-                        if (dateObj.getDay() === 0) totalDomingos++;
-                    } else if (st === 'folga') {
-                        totalFolga++;
-                    } else if (st === 'ferias') {
-                        totalFerias++;
-                    }
-                }
-                diasStatus[d] = st;
-            }
-
-            const pBox = document.createElement('div');
-            pBox.className = 'pessoa-relatorio';
-
-            let calHtml = `<div class="calendario-grid">`;
-            const rotulosDias = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
-            rotulosDias.forEach(r => calHtml += `<div class="cal-dia-label">${r}</div>`);
-
-            const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
-            const offset = (primeiroDiaSemana === 0) ? 6 : primeiroDiaSemana - 1;
-
-            for (let i = 0; i < offset; i++) {
-                calHtml += `<div class="cal-dia cal-vazio"></div>`;
-            }
-
-            for (let d = 1; d <= diasNoMes; d++) {
-                const st = diasStatus[d];
-                let cls = 'cal-vazio';
-                if (st === 'trabalho') cls = 'cal-trabalho';
-                else if (st === 'folga') cls = 'cal-folga';
-                else if (st === 'ferias') cls = 'cal-ferias';
-
-                const dateObj = new Date(ano, mes - 1, d);
-                const isDom = dateObj.getDay() === 0 ? 'cal-domingo' : '';
-
-                calHtml += `<div class="cal-dia ${cls} ${isDom}" title="${d}/${mes}/${ano}: ${st}">${d}</div>`;
-            }
-            calHtml += `</div>`;
-
-            pBox.innerHTML = `
-                <div class="pessoa-nome">${nome}</div>
-                <div class="pessoa-stats">
-                    <div class="stat-box stat-trabalho">Trabalho: <strong>${totalTrabalho}</strong> dias</div>
-                    <div class="stat-box stat-folga">Folgas: <strong>${totalFolga}</strong> dias</div>
-                    <div class="stat-box stat-domingo">Domingos Trab.: <strong>${totalDomingos}</strong></div>
-                    <div class="stat-box stat-ferias">Férias: <strong>${totalFerias}</strong> dias</div>
-                </div>
-                ${calHtml}
-            `;
-            containerPessoas.appendChild(pBox);
-        });
-
-        document.getElementById('relatorioOverlay').style.display = 'block';
-    }
-
-    function fecharRelatorio() {
-        document.getElementById('relatorioOverlay').style.display = 'none';
-    }
-
-    function imprimirRelatorio() {
-        window.print();
-    }
-
-    function exportarCSV() {
-        let csv = "Nome,Data,Status\n";
-        historicoMovimentos.forEach(h => {
-            csv += `"${h.nome}","${h.data}","${h.status}"\n`;
-        });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `relatorio_escala_${mesSelecionado}_${anoSelecionado}.csv`;
-        a.click();
-    }
-
-    // ATUALIZAÇÃO DOS TEMPORIZADORES NA TELA
-    setInterval(() => {
-        const agora = Date.now();
-        document.querySelectorAll('.card').forEach(card => {
-            const spanLocal = card.querySelector('.timer-local');
-            const spanCiclo = card.querySelector('.timer-ciclo');
-            
-            const localStart = parseInt(card.dataset.localStart);
-            if (spanLocal && !isNaN(localStart)) {
-                const diffLocal = Math.floor((agora - localStart) / 86400000);
-                spanLocal.innerText = `${diffLocal}d no setor`;
-            }
-
-            const cicloStart = parseInt(card.dataset.cicloStart);
-            if (spanCiclo && !isNaN(cicloStart) && card.dataset.cicloStart !== "") {
-                const diffCiclo = Math.floor((agora - cicloStart) / 86400000);
-                spanCiclo.innerText = `Ciclo: ${diffCiclo}d`;
-                
-                spanCiclo.className = "timer-ciclo";
-                if (diffCiclo >= 7 && diffCiclo < 10) {
-                    spanCiclo.classList.add('alerta-laranja');
-                } else if (diffCiclo >= 10 && diffCiclo < 14) {
-                    spanCiclo.classList.add('alerta-vermelho');
-                } else if (diffCiclo >= 14) {
-                    spanCiclo.classList.add('alerta-pisca');
-                }
-            } else if (spanCiclo) {
-                spanCiclo.innerText = "";
-            }
-        });
-    }, 1000);
-
-    // EXPORTAR FOTO LIMPA
-    function exportarLimpo() {
-        const painel = document.getElementById('painel');
-        painel.classList.add('export-mode');
-        
-        html2canvas(painel, { scale: 2, useCORS: true }).then(canvas => {
-            painel.classList.remove('export-mode');
-            const link = document.createElement('a');
-            link.download = 'escala_blp_limpa.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }).catch(err => {
-            painel.classList.remove('export-mode');
-            console.error("Erro ao gerar imagem:", err);
-            alert("Erro ao exportar imagem.");
-        });
-    }
-
-    window.onload = loadState;
-</script>
-
-</body>
-</html>
