@@ -639,7 +639,8 @@
             localStorage.setItem('ultima_data_verificada', dataHojeStr);
             
             // REGISTRAR HISTÓRICO ÀS 23:59 pra quem está em folga/atestado/férias/trabalho
-            const hojeISO = new Date().toISOString().slice(0,10);
+            const agoraLocal = new Date();
+            const hojeISO = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, '0')}-${String(agoraLocal.getDate()).padStart(2, '0')}`;
             document.querySelectorAll('.card').forEach(card => {
                 const sectorBox = card.closest('.sector-box');
                 if (!sectorBox) return;
