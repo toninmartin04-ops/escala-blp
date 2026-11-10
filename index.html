@@ -895,18 +895,26 @@
 
             // Processar movimentos ordenados por data
             movimentos.sort((a, b) => a.data.localeCompare(b.data));
-            let statusAtual = 'vazio';
             movimentos.forEach(m => {
                 const dia = parseInt(m.data.split('-')[2]);
-                if (m.acao === 'folga' || m.acao === 'ferias') {
-                    statusAtual = m.acao;
-                } else if (m.acao === 'trabalho') {
-                    statusAtual = 'trabalho';
-                }
-                for (let d = dia; d <= diasNoMes; d++) {
-                    statusDias[d] = statusAtual;
+                if (dia >= 1 && dia <= diasNoMes) {
+                    if (m.acao === 'folga' || m.acao === 'ferias' || m.acao === 'atestado') {
+                        statusDias[dia] = m.acao === 'atestado' ? 'folga' : m.acao;
+                    } else if (m.acao === 'trabalho') {
+                        statusDias[dia] = 'trabalho';
+                    }
                 }
             });
+
+            // Preencher dias sem registro com o status do dia anterior
+            let ultimoStatus = 'vazio';
+            for (let d = 1; d <= diasNoMes; d++) {
+                if (statusDias[d] && statusDias[d] !== 'vazio') {
+                    ultimoStatus = statusDias[d];
+                } else {
+                    statusDias[d] = ultimoStatus;
+                }
+            }
 
             // Contar
             for (let d = 1; d <= diasNoMes; d++) {
@@ -954,13 +962,24 @@
             const statusDias = {};
             for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
             movimentos.sort((a, b) => a.data.localeCompare(b.data));
-            let statusAtual = 'vazio';
             movimentos.forEach(m => {
                 const dia = parseInt(m.data.split('-')[2]);
-                if (m.acao === 'folga' || m.acao === 'ferias') statusAtual = m.acao;
-                else if (m.acao === 'trabalho') statusAtual = 'trabalho';
-                for (let d = dia; d <= diasNoMes; d++) statusDias[d] = statusAtual;
+                if (dia >= 1 && dia <= diasNoMes) {
+                    if (m.acao === 'folga' || m.acao === 'ferias' || m.acao === 'atestado') {
+                        statusDias[dia] = m.acao === 'atestado' ? 'folga' : m.acao;
+                    } else if (m.acao === 'trabalho') {
+                        statusDias[dia] = 'trabalho';
+                    }
+                }
             });
+            let ultimoStatus = 'vazio';
+            for (let d = 1; d <= diasNoMes; d++) {
+                if (statusDias[d] && statusDias[d] !== 'vazio') {
+                    ultimoStatus = statusDias[d];
+                } else {
+                    statusDias[d] = ultimoStatus;
+                }
+            }
             let folgas=0, trabalho=0, domingos=0, ferias=0;
             for (let d = 1; d <= diasNoMes; d++) {
                 const ds = new Date(ano, mes-1, d).getDay();
