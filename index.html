@@ -906,15 +906,7 @@
                 }
             });
 
-            // Preencher dias sem registro com o status do dia anterior
-            let ultimoStatus = 'vazio';
-            for (let d = 1; d <= diasNoMes; d++) {
-                if (statusDias[d] && statusDias[d] !== 'vazio') {
-                    ultimoStatus = statusDias[d];
-                } else {
-                    statusDias[d] = ultimoStatus;
-                }
-            }
+            // NÃO preencher dias sem registro - contar apenas dias com registro real
 
             // Contar
             for (let d = 1; d <= diasNoMes; d++) {
@@ -972,14 +964,6 @@
                     }
                 }
             });
-            let ultimoStatus = 'vazio';
-            for (let d = 1; d <= diasNoMes; d++) {
-                if (statusDias[d] && statusDias[d] !== 'vazio') {
-                    ultimoStatus = statusDias[d];
-                } else {
-                    statusDias[d] = ultimoStatus;
-                }
-            }
             let folgas=0, trabalho=0, domingos=0, ferias=0;
             for (let d = 1; d <= diasNoMes; d++) {
                 const ds = new Date(ano, mes-1, d).getDay();
