@@ -145,8 +145,6 @@
     <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
     <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
     <button style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarRelatorioMensal()">📊 RELATÓRIO MENSAL</button>
-    <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
-    <button style="background:#8e44ad; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="limparHistorico()">🗑️ LIMPAR HISTÓRICO</button>
 </div>
 
 <!-- MODAL SELETOR DE MÊS/ANO -->
@@ -587,6 +585,9 @@
         isLoading = false;
         saveState();
         atualizarDataAmanha(); 
+        
+        // Registrar histórico ao abrir o app (se ainda não registrou hoje)
+        registrarHistoricoSeNecessario();
     }
 
     async function resetGeral() { 
@@ -798,22 +799,29 @@
         }, 100);
     }
     
-    async function limparHistorico() {
-        if (confirm("Deseja apagar TODO o histórico de movimentos? O relatório mensal será resetado. A escala atual NÃO será afetada.")) {
-            historicoMovimentos = [];
-            localStorage.setItem('historico_movimentos', '[]');
-            try {
-                const doc = await db.collection("escala_blp").doc("dados_atuais").get();
-                if (doc.exists) {
-                    const state = doc.data();
-                    state.historico = [];
-                    await db.collection("escala_blp").doc("dados_atuais").set(state);
-                }
-            } catch(e) {
-                console.error("Erro ao limpar histórico:", e);
-            }
-            alert("Histórico limpo! A partir de hoje os dados serão registrados corretamente.");
-        }
+    function registrarHistoricoSeNecessario() {
+        const agoraLocal = new Date();
+        const hojeISO = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, '0')}-${String(agoraLocal.getDate()).padStart(2, '0')}`;
+        
+        // Verificar se já registrou hoje
+        const jaRegistrou = historicoMovimentos.some(h => h.data === hojeISO);
+        if (jaRegistrou) return;
+        
+        // Registrar status atual de todos
+        document.querySelectorAll('.card').forEach(card => {
+            const sectorBox = card.closest('.sector-box');
+            if (!sectorBox) return;
+            const sectorId = sectorBox.id;
+            const nome = card.querySelector('.name').innerText;
+            let acao = null;
+            if (sectorId === 'sec-folga') acao = 'folga';
+            else if (sectorId === 'sec-atestado') acao = 'atestado';
+            else if (sectorId === 'sec-ferias') acao = 'ferias';
+            else acao = 'trabalho';
+            
+            historicoMovimentos.push({ data: hojeISO, pessoa: nome, acao: acao, setor: sectorId, turno: '', hora: agoraLocal.toTimeString().slice(0,5) });
+        });
+        saveState();
     }
 
     function fecharRelatorio() {
