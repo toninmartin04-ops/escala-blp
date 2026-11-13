@@ -30,6 +30,8 @@
         /* TEMPORIZADORES */
         .timer-local { color: #d35400; font-weight: bold; display: block; font-size: 10px; }
         .timer-ciclo { display: block; font-size: 10px; border-top: 1px solid #eee; margin-top: 3px; padding-top: 2px; color: #2980b9; }
+        .admin-info { cursor: pointer; }
+        .admin-info:hover .timer-ciclo { text-decoration: underline; }
         
         /* TAGS (DOMINGO E FOLGA EXTRA) */
         .tags-container { display: flex; justify-content: center; gap: 5px; margin-top: 5px; align-items: center; }
@@ -141,8 +143,7 @@
     <input type="text" id="novoFuncionario" placeholder="NOME DO FUNCIONÁRIO">
     <button class="btn-add" onclick="adicionarManual()">+ CADASTRAR</button>
     
-    <button style="background:#f39c12; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-left: auto;" onclick="resetarDias()">🔄 ZERAR DIAS</button>
-    <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
+    <button style="background:#c0392b; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-left: auto;" onclick="resetGeral()">⚠️ ZERAR TUDO</button>
     <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 10px;"></div>
     <button style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="exportarRelatorioMensal()">📊 RELATÓRIO MENSAL</button>
 </div>
@@ -223,16 +224,10 @@
     const db = firebase.firestore();
 
     let isLoading = false;
+    let carregamentoOk = false;   // NOVO: só salva depois que a carga da nuvem der certo
     let ultimaDataVerificada = localStorage.getItem('ultima_data_verificada') || new Date().toDateString();
     let ultimoDomingoContado = localStorage.getItem('ultimo_domingo_contado') || "";
     let historicoMovimentos = JSON.parse(localStorage.getItem('historico_movimentos') || '[]');
-
-    // Limpar histórico corrompido (UTC + fill-forward) uma única vez
-    if (!localStorage.getItem('historico_v2_limpo')) {
-        historicoMovimentos = [];
-        localStorage.setItem('historico_movimentos', '[]');
-        localStorage.setItem('historico_v2_limpo', '1');
-    }
 
     function allowDrop(ev) { ev.preventDefault(); }
     function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -366,7 +361,7 @@
         card.innerHTML = `
             <button class="btn-del" onclick="removerFuncionario('${id}')" title="Excluir Funcionário">x</button>
             <span class="name">${n}</span>
-            <div class="admin-info">
+            <div class="admin-info" title="Clique nos dias para ajustar manualmente">
                 <span class="timer-local"></span><span class="timer-ciclo"></span>
             </div>
             <div class="tags-container">
@@ -395,30 +390,62 @@
         if (confirm("Remover funcionário do sistema?")) { document.getElementById(id).remove(); saveState(); }
     }
 
-    function resetarDias() {
-        if(confirm("Deseja zerar os dias trabalhados, domingos e contagem de domingos seguidos de TODOS os funcionários?")) {
-            document.querySelectorAll('.card').forEach(card => {
-                const sectorId = card.closest('.sector-box').id;
-                
-                if (sectorId === 'sec-folga' || sectorId === 'sec-atestado' || sectorId === 'sec-ferias') {
-                    card.dataset.cicloStart = "";
-                } else {
-                    card.dataset.cicloStart = Date.now();
-                }
+    // Ajuste manual dos dias trabalhados (clique nos dias do card)
+    function ajustarDias(card) {
+        const nome = card.querySelector('.name').innerText;
+        const setorId = card.closest('.sector-box') ? card.closest('.sector-box').id : '';
+        if (setorId === 'sec-folga' || setorId === 'sec-atestado' || setorId === 'sec-ferias') {
+            alert(`${nome} está em descanso. Mova para um turno de trabalho antes de ajustar os dias.`);
+            return;
+        }
+        const atual = card.dataset.cicloStart ? Math.floor((Date.now() - Number(card.dataset.cicloStart)) / 86400000) + 1 : 0;
+        const v = prompt(`Ajustar DIAS TRABALHADOS de ${nome}\n(contador atual: ${atual})\n\nDigite o número de dias:`, atual || "1");
+        if (v === null) return;
+        const n = parseInt(v);
+        if (isNaN(n) || n < 1) return;
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() - (n - 1));
+        card.dataset.cicloStart = String(d.getTime());
+        saveState();
+    }
 
-                card.dataset.domingo = "false";
-                card.dataset.extra = "false";
-                card.dataset.domingosConsecutivos = "0";
-                card.querySelector('.tag-btn:nth-child(1)').classList.remove('dom-active');
-                card.querySelector('.tag-btn:nth-child(2)').classList.remove('ext-active');
-                atualizarBadgeDomingos(card, 0);
-            });
-            saveState();
+    document.getElementById('painel').addEventListener('click', function (e) {
+        if (e.target.closest('.admin-info')) {
+            const card = e.target.closest('.card');
+            if (card) ajustarDias(card);
+        }
+    });
+
+    // NOVO: guarda uma cópia do estado no 1º carregamento de cada dia
+    async function criarBackupDiario(state) {
+        try {
+            const h = new Date();
+            const id = `auto_${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+            const ref = db.collection("escala_blp_backups").doc(id);
+            const snap = await ref.get();
+            if (!snap.exists) {
+                await ref.set(Object.assign({}, state, { _criadoEm: new Date().toISOString() }));
+                console.log("Backup diário criado:", id);
+            }
+        } catch (e) {
+            console.warn("Backup diário falhou (não impede o uso):", e);
         }
     }
 
     async function saveState() {
         if (isLoading) return; 
+        if (!carregamentoOk) {
+            console.warn("Salvamento bloqueado: a carga da nuvem ainda não foi concluída com sucesso.");
+            return;
+        }
+
+        // PROTEÇÃO: nunca grava uma escala vazia por cima da boa
+        if (document.querySelectorAll('.card').length === 0) {
+            console.warn("Salvamento bloqueado: a tela está sem funcionários (proteção contra perda).");
+            return;
+        }
+
         const state = { sectors: [], people: [], observacoes: document.getElementById('observacoesGerais').value, ultimoDomingoContado: ultimoDomingoContado, historico: historicoMovimentos };
         
         document.querySelectorAll('.sector-box').forEach(sb => {
@@ -433,12 +460,12 @@
             state.people.push({ 
                 name: c.querySelector('.name').innerText, 
                 parent: c.parentElement.id, 
-                localStart: c.dataset.localStart, 
-                cicloStart: c.dataset.cicloStart, 
-                lastSector: c.dataset.lastSector, 
+                localStart: c.dataset.localStart || "", 
+                cicloStart: c.dataset.cicloStart || "", 
+                lastSector: c.dataset.lastSector || "", 
                 id: c.id,
-                domingo: c.dataset.domingo,
-                extra: c.dataset.extra,
+                domingo: c.dataset.domingo || "false",
+                extra: c.dataset.extra || "false",
                 domingosConsecutivos: c.dataset.domingosConsecutivos || "0"
             });
         });
@@ -453,8 +480,11 @@
 
     async function loadState() {
         isLoading = true; 
+        carregamentoOk = false;
         document.getElementById('data-amanha').innerText = "CARREGANDO DADOS DA NUVEM...";
         
+        let stateCarregado = null;
+
         try {
             const doc = await db.collection("escala_blp").doc("dados_atuais").get();
             
@@ -490,7 +520,6 @@
                 perdidos.forEach(p => galeraFoto.push({ n: p, d: "dz-folga" }));
 
                 galeraFoto.forEach(p => {
-                    // Só adiciona se o funcionário já não existir na tela
                     if (![...document.querySelectorAll('.card .name')].some(el => el.innerText === p.n)) {
                         const card = criarPessoa(p.n);
                         const dest = document.getElementById(p.d) || document.getElementById('dz-folga');
@@ -511,24 +540,18 @@
 
             if (!doc.exists) {
                 injetarEstruturaPadrao();
+                carregamentoOk = true;
                 isLoading = false;
-                saveState(); 
+                await saveState(); 
                 atualizarDataAmanha(); 
+                registrarHistoricoSeNecessario();
                 return;
             }
 
             const state = doc.data();
+            stateCarregado = state;
             
-            // Limpar histórico corrompido do Firebase uma única vez
-            if (!localStorage.getItem('historico_v2_limpo')) {
-                if (state.historico) {
-                    state.historico = [];
-                    await db.collection("escala_blp").doc("dados_atuais").set(state);
-                }
-                localStorage.setItem('historico_v2_limpo', '1');
-            }
-            
-            if (state.historico && state.historico.length > 0) {
+            if (Array.isArray(state.historico)) {
                 historicoMovimentos = state.historico;
                 localStorage.setItem('historico_movimentos', JSON.stringify(historicoMovimentos));
             }
@@ -544,7 +567,7 @@
             if (state.sectors && state.sectors.length > 0) {
                 state.sectors.forEach(s => {
                     if (s.name) { const h = document.querySelector(`#${s.id} .sector-header`); if (h) h.innerText = s.name; }
-                    s.shifts.forEach(sh => {
+                    (s.shifts || []).forEach(sh => {
                         if (!document.getElementById(sh.id)) {
                             addShift(s.id, sh.title, sh.id);
                         }
@@ -573,17 +596,36 @@
                 });
             }
 
-            // SE A LISTA ESTIVER VAZIA NO BANCO, FORÇA A INSERÇÃO DA GALERA PADRÃO
+            // PROTEÇÃO: se o banco veio sem funcionários, NÃO recria sozinho.
             if (!state.people || state.people.length === 0) {
+                const podeRecriar = confirm(
+                    "⚠️ ATENÇÃO!\n\nO banco voltou com a LISTA DE FUNCIONÁRIOS VAZIA.\n\n" +
+                    "Isso normalmente é sinal de problema no carregamento.\n\n" +
+                    "Clique em CANCELAR para NÃO salvar nada (recomendado).\n" +
+                    "Clique em OK somente se você realmente quer recriar a escala padrão do zero."
+                );
+                if (!podeRecriar) {
+                    alert("Nada foi salvo. Atualize a página. Se continuar vazio, fale com o suporte.");
+                    isLoading = false;
+                    document.getElementById('data-amanha').innerText = "FALHA NA CARGA - NÃO SALVO";
+                    return;
+                }
                 injetarEstruturaPadrao();
             }
+
+            carregamentoOk = true;
             
         } catch(e) {
             console.error("Erro ao puxar dados do Firebase:", e);
+            isLoading = false;
+            document.getElementById('data-amanha').innerText = "ERRO AO CARREGAR - NADA FOI SALVO";
+            alert("⚠️ ERRO ao carregar os dados da nuvem.\n\nPara proteger a escala, NADA foi salvo agora.\n\nVerifique a internet e atualize a página.");
+            return;
         }
         
         isLoading = false;
-        saveState();
+        if (stateCarregado) await criarBackupDiario(stateCarregado);
+        await saveState();
         atualizarDataAmanha(); 
         
         // Registrar histórico ao abrir o app (se ainda não registrou hoje)
@@ -597,6 +639,16 @@
             return;
         }
         if(confirm("ATENÇÃO: Deseja apagar toda a escala do servidor para todos os usuários?")) { 
+            // Backup de segurança antes de apagar
+            try {
+                const atual = await db.collection("escala_blp").doc("dados_atuais").get();
+                if (atual.exists) {
+                    const id = "antes_do_reset_" + new Date().toISOString().replace(/[:.]/g, "-");
+                    await db.collection("escala_blp_backups").doc(id).set(atual.data());
+                }
+            } catch (e) { console.warn("Backup antes do reset falhou:", e); }
+
+            carregamentoOk = false;
             await db.collection("escala_blp").doc("dados_atuais").delete();
             localStorage.removeItem('ultimo_domingo_contado');
             location.reload(); 
@@ -616,7 +668,6 @@
 
         const agora = new Date();
 
-        // Descobre qual foi o domingo dessa contagem (mesmo se abrir na segunda)
         const domingoRef = new Date(agora);
         domingoRef.setHours(0,0,0,0);
         domingoRef.setDate(agora.getDate() - agora.getDay());
@@ -634,7 +685,6 @@
                     ['FOLGA','ATESTADO','DESCANSO','FÉRIA','FERIA'].some(p => sectorTitle.includes(p));
                 
                 if (!isDescanso) {
-                    // Trabalhando no domingo: marca DOM e soma +1 (uma vez por domingo)
                     card.dataset.domingo = "true";
                     const btnDom = card.querySelector('.tag-btn:nth-child(1)');
                     if (btnDom) btnDom.classList.add('dom-active');
@@ -642,7 +692,6 @@
                     card.dataset.domingosConsecutivos = domSeguidos;
                     atualizarBadgeDomingos(card, domSeguidos);
                 } else {
-                    // Folgou no domingo: zera sequência
                     card.dataset.domingosConsecutivos = "0";
                     atualizarBadgeDomingos(card, 0);
                 }
@@ -658,7 +707,6 @@
             ultimaDataVerificada = dataHojeStr;
             localStorage.setItem('ultima_data_verificada', dataHojeStr);
             
-            // REGISTRAR HISTÓRICO ÀS 23:59 pra quem está em folga/atestado/férias/trabalho
             const agoraLocal = new Date();
             const hojeISO = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, '0')}-${String(agoraLocal.getDate()).padStart(2, '0')}`;
             document.querySelectorAll('.card').forEach(card => {
@@ -711,7 +759,6 @@
                 } else { tL.innerText = "S/ REGISTRO"; }
 
                 if (isDescanso) {
-                    // ATESTADO: mostra dias mas NÃO apita (diferente de folga)
                     if (sectorId === 'sec-atestado') {
                         let infoAtestado = "";
                         if (l && l !== "undefined" && l !== "") {
@@ -723,7 +770,6 @@
                         tC.innerHTML = infoAtestado + "DESCANSANDO";
                         tC.className = "timer-ciclo";
                     } else {
-                        // FOLGA: apita se 2+ dias seguidos
                         let avisoFolga = "";
                         if (l && l !== "undefined" && l !== "") {
                             const dataEntrada = new Date(parseInt(l));
@@ -766,7 +812,6 @@
     }, 1000);
 
     function exportarLimpo() {
-        // AVISO 4º DOMINGO: quem tem 3+ e continua na escala
         const emRisco = [];
         document.querySelectorAll('.card').forEach(card => {
             const n = parseInt(card.dataset.domingosConsecutivos || "0");
@@ -803,11 +848,9 @@
         const agoraLocal = new Date();
         const hojeISO = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, '0')}-${String(agoraLocal.getDate()).padStart(2, '0')}`;
         
-        // Verificar se já registrou hoje
         const jaRegistrou = historicoMovimentos.some(h => h.data === hojeISO);
         if (jaRegistrou) return;
         
-        // Registrar status atual de todos
         document.querySelectorAll('.card').forEach(card => {
             const sectorBox = card.closest('.sector-box');
             if (!sectorBox) return;
@@ -901,18 +944,15 @@
         const diasNoMes = new Date(ano, mes, 0).getDate();
         const primeiroDia = new Date(ano, mes - 1, 1).getDay();
 
-        // Filtrar histórico do mês
         const prefixoMes = `${ano}-${String(mes).padStart(2,'0')}`;
         const historicoMes = historicoMovimentos.filter(h => h.data.startsWith(prefixoMes));
 
-        // Agrupar por pessoa
         const mapaPessoas = {};
         historicoMes.forEach(h => {
             if (!mapaPessoas[h.pessoa]) mapaPessoas[h.pessoa] = [];
             mapaPessoas[h.pessoa].push(h);
         });
 
-        // Também incluir pessoas que estão na escala mas sem movimento no mês
         document.querySelectorAll('.card .name').forEach(el => {
             const nome = el.innerText;
             if (!mapaPessoas[nome]) mapaPessoas[nome] = [];
@@ -932,14 +972,11 @@
         nomes.forEach(nome => {
             const movimentos = mapaPessoas[nome];
             
-            // Calcular status de cada dia do mês
             const statusDias = {};
             let folgas = 0, trabalho = 0, domingos = 0, ferias = 0;
 
-            // Estado inicial: sem registro
             for (let d = 1; d <= diasNoMes; d++) statusDias[d] = 'vazio';
 
-            // Processar movimentos ordenados por data
             movimentos.sort((a, b) => a.data.localeCompare(b.data));
             movimentos.forEach(m => {
                 const dia = parseInt(m.data.split('-')[2]);
@@ -952,9 +989,6 @@
                 }
             });
 
-            // NÃO preencher dias sem registro - contar apenas dias com registro real
-
-            // Contar
             for (let d = 1; d <= diasNoMes; d++) {
                 const diaSemana = new Date(ano, mes - 1, d).getDay();
                 if (statusDias[d] === 'folga') folgas++;
@@ -965,7 +999,6 @@
                 else if (statusDias[d] === 'ferias') ferias++;
             }
 
-            // Calendário HTML
             let calHtml = '<div class="calendario-grid">';
             for (let i = 0; i < 7; i++) calHtml += `<div class="cal-dia-label">${diasSemana[i]}</div>`;
             for (let i = 0; i < primeiroDia; i++) calHtml += '<div class="cal-dia cal-vazio"></div>';
